@@ -93,6 +93,26 @@
 </head>
 <body>
     <div class="container">
+        <!-- Security Section -->
+        <div class="settings-section">
+            <h3>🔒 Security & Privacy</h3>
+            <div class="setting-item">
+                <label>Password Protection</label>
+                <p class="setting-description">Protect your notes with a password. When enabled, you'll need to enter your password to view or edit notes.</p>
+                <div class="storage-info" id="password-status">
+                    <div class="info-item">
+                        <span class="info-label">Status:</span>
+                        <span class="info-value" id="password-enabled-status">Loading...</span>
+                    </div>
+                </div>
+                <div class="setting-buttons" id="password-controls">
+                    <button id="enable-password-btn" class="btn btn-primary" style="display: none;">🔒 Enable Password Protection</button>
+                    <button id="change-password-btn" class="btn btn-secondary" style="display: none;">🔑 Change Password</button>
+                    <button id="disable-password-btn" class="btn btn-danger" style="display: none;">🔓 Disable Password Protection</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Data Management Section -->
         <div class="settings-section">
             <h3>💾 Data Management</h3>
@@ -181,6 +201,97 @@
         </div>
     </div>
 
+    <!-- Password Setup Modal -->
+    <div id="passwordSetupModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="passwordModalTitle">🔒 Set Password</h3>
+            </div>
+            <div class="modal-body">
+                <p id="passwordModalMessage">Enter a password to protect your notes:</p>
+                <input type="password" id="newPasswordInput" class="password-input" placeholder="Enter new password..." autocomplete="new-password">
+                <input type="password" id="confirmPasswordInput" class="password-input" placeholder="Confirm password..." autocomplete="new-password">
+                <input type="password" id="currentPasswordInput" class="password-input" placeholder="Enter current password..." autocomplete="current-password" style="display: none;">
+                <div id="passwordSetupError" class="error-message" style="display: none;">
+                    Passwords do not match or other error.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="passwordSetupCancel" class="btn btn-secondary">Cancel</button>
+                <button id="passwordSetupConfirm" class="btn btn-primary">🔒 Set Password</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            min-width: 400px;
+            max-width: 500px;
+            width: 90vw;
+            margin: 20px;
+            box-sizing: border-box;
+        }
+        .modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .modal-header h3 {
+            margin: 0;
+            font-size: 1.1rem;
+            color: #1e293b;
+        }
+        .modal-body {
+            padding: 20px;
+        }
+        .modal-body p {
+            margin: 0 0 16px 0;
+            color: #64748b;
+            line-height: 1.5;
+        }
+        .password-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            outline: none;
+            margin-bottom: 12px;
+            box-sizing: border-box;
+            max-width: 100%;
+        }
+        .password-input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+        }
+        .error-message {
+            color: #dc2626;
+            font-size: 0.875rem;
+            margin-top: 8px;
+        }
+        .modal-footer {
+            padding: 16px 20px;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+    </style>
+
     <script>
         let storage = null;
 
@@ -232,8 +343,40 @@
             const hasEncryption = typeof EncryptedStorage !== 'undefined';
             document.getElementById('storage-type').textContent = hasEncryption ? 'Encrypted Local Storage' : 'Local Storage (Fallback)';
             
+            // Update password protection status
+            await updatePasswordStatus();
+            
             // Update PWA status
             updatePWAStatus();
+        }
+
+        async function updatePasswordStatus() {
+            try {
+                const notebookData = await storage.loadEncrypted('notebook-data');
+                const isPasswordEnabled = notebookData?.settings?.passwordProtected || false;
+                
+                const statusElement = document.getElementById('password-enabled-status');
+                const enableBtn = document.getElementById('enable-password-btn');
+                const changeBtn = document.getElementById('change-password-btn');
+                const disableBtn = document.getElementById('disable-password-btn');
+                
+                if (isPasswordEnabled) {
+                    statusElement.textContent = '🔒 Enabled';
+                    statusElement.style.color = '#059669';
+                    enableBtn.style.display = 'none';
+                    changeBtn.style.display = 'inline-block';
+                    disableBtn.style.display = 'inline-block';
+                } else {
+                    statusElement.textContent = '🔓 Disabled';
+                    statusElement.style.color = '#dc2626';
+                    enableBtn.style.display = 'inline-block';
+                    changeBtn.style.display = 'none';
+                    disableBtn.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error checking password status:', error);
+                document.getElementById('password-enabled-status').textContent = 'Error';
+            }
         }
 
         function updatePWAStatus() {
@@ -471,7 +614,279 @@
             }
         }
 
+        // Password management functions
+        async function hashPassword(password) {
+            // Simple hash function for demo - in production, use stronger hashing
+            const encoder = new TextEncoder();
+            const data = encoder.encode(password + 'notes-salt-2025');
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        async function verifyPassword(inputPassword, storedHash) {
+            const inputHash = await hashPassword(inputPassword);
+            return inputHash === storedHash;
+        }
+
+        function showPasswordModal(mode, currentHash = null) {
+            const modal = document.getElementById('passwordSetupModal');
+            const title = document.getElementById('passwordModalTitle');
+            const message = document.getElementById('passwordModalMessage');
+            const newPasswordInput = document.getElementById('newPasswordInput');
+            const confirmPasswordInput = document.getElementById('confirmPasswordInput');
+            const currentPasswordInput = document.getElementById('currentPasswordInput');
+            const confirmBtn = document.getElementById('passwordSetupConfirm');
+            const errorDiv = document.getElementById('passwordSetupError');
+
+            // Reset form
+            newPasswordInput.value = '';
+            confirmPasswordInput.value = '';
+            currentPasswordInput.value = '';
+            errorDiv.style.display = 'none';
+
+            if (mode === 'enable') {
+                title.textContent = '🔒 Enable Password Protection';
+                message.textContent = 'Set a password to protect your notes:';
+                currentPasswordInput.style.display = 'none';
+                confirmBtn.textContent = '🔒 Enable Protection';
+            } else if (mode === 'change') {
+                title.textContent = '🔑 Change Password';
+                message.textContent = 'Enter your current password and a new password:';
+                currentPasswordInput.style.display = 'block';
+                confirmBtn.textContent = '🔑 Change Password';
+            } else if (mode === 'disable') {
+                title.textContent = '🔓 Disable Password Protection';
+                message.textContent = 'Enter your current password to disable protection:';
+                newPasswordInput.style.display = 'none';
+                confirmPasswordInput.style.display = 'none';
+                currentPasswordInput.style.display = 'block';
+                confirmBtn.textContent = '🔓 Disable Protection';
+            }
+
+            // Ensure proper display for enable mode
+            if (mode === 'enable') {
+                newPasswordInput.style.display = 'block';
+                confirmPasswordInput.style.display = 'block';
+            } else if (mode === 'change') {
+                newPasswordInput.style.display = 'block';
+                confirmPasswordInput.style.display = 'block';
+            }
+
+            modal.style.display = 'flex';
+            setTimeout(() => {
+                if (mode === 'disable' || mode === 'change') {
+                    currentPasswordInput.focus();
+                } else {
+                    newPasswordInput.focus();
+                }
+            }, 100);
+
+            return new Promise((resolve) => {
+                const handleConfirm = async () => {
+                    try {
+                        if (mode === 'enable') {
+                            const newPassword = newPasswordInput.value;
+                            const confirmPassword = confirmPasswordInput.value;
+
+                            if (!newPassword || newPassword.length < 4) {
+                                showError('Password must be at least 4 characters long.');
+                                return;
+                            }
+
+                            if (newPassword !== confirmPassword) {
+                                showError('Passwords do not match.');
+                                return;
+                            }
+
+                            const passwordHash = await hashPassword(newPassword);
+                            hidePasswordModal();
+                            resolve({ success: true, hash: passwordHash });
+
+                        } else if (mode === 'change') {
+                            const currentPassword = currentPasswordInput.value;
+                            const newPassword = newPasswordInput.value;
+                            const confirmPassword = confirmPasswordInput.value;
+
+                            if (!await verifyPassword(currentPassword, currentHash)) {
+                                showError('Current password is incorrect.');
+                                return;
+                            }
+
+                            if (!newPassword || newPassword.length < 4) {
+                                showError('New password must be at least 4 characters long.');
+                                return;
+                            }
+
+                            if (newPassword !== confirmPassword) {
+                                showError('New passwords do not match.');
+                                return;
+                            }
+
+                            const passwordHash = await hashPassword(newPassword);
+                            hidePasswordModal();
+                            resolve({ success: true, hash: passwordHash });
+
+                        } else if (mode === 'disable') {
+                            const currentPassword = currentPasswordInput.value;
+
+                            if (!await verifyPassword(currentPassword, currentHash)) {
+                                showError('Password is incorrect.');
+                                return;
+                            }
+
+                            hidePasswordModal();
+                            resolve({ success: true });
+                        }
+                    } catch (error) {
+                        showError('An error occurred. Please try again.');
+                        console.error('Password operation error:', error);
+                    }
+                };
+
+                const handleCancel = () => {
+                    hidePasswordModal();
+                    resolve({ success: false });
+                };
+
+                const showError = (message) => {
+                    errorDiv.textContent = message;
+                    errorDiv.style.display = 'block';
+                };
+
+                // Set up event listeners
+                document.getElementById('passwordSetupConfirm').onclick = handleConfirm;
+                document.getElementById('passwordSetupCancel').onclick = handleCancel;
+
+                // Handle Enter key
+                const handleKeyPress = (e) => {
+                    if (e.key === 'Enter') handleConfirm();
+                    if (e.key === 'Escape') handleCancel();
+                };
+
+                newPasswordInput.onkeypress = handleKeyPress;
+                confirmPasswordInput.onkeypress = handleKeyPress;
+                currentPasswordInput.onkeypress = handleKeyPress;
+            });
+        }
+
+        function hidePasswordModal() {
+            document.getElementById('passwordSetupModal').style.display = 'none';
+            // Clean up event listeners
+            document.getElementById('passwordSetupConfirm').onclick = null;
+            document.getElementById('passwordSetupCancel').onclick = null;
+            document.getElementById('newPasswordInput').onkeypress = null;
+            document.getElementById('confirmPasswordInput').onkeypress = null;
+            document.getElementById('currentPasswordInput').onkeypress = null;
+        }
+
+        async function enablePasswordProtection() {
+            const result = await showPasswordModal('enable');
+            if (!result.success) return;
+
+            try {
+                const notebookData = await storage.loadEncrypted('notebook-data') || {};
+                notebookData.settings = notebookData.settings || {};
+                notebookData.settings.passwordProtected = true;
+                notebookData.settings.passwordHash = result.hash;
+
+                await storage.saveEncrypted('notebook-data', notebookData);
+                await updatePasswordStatus();
+                
+                // Notify notes list of changes
+                notifyPasswordSettingsChanged();
+                
+                alert('✅ Password protection enabled!\nYour notes are now secured with a password.');
+            } catch (error) {
+                console.error('Failed to enable password protection:', error);
+                alert('❌ Failed to enable password protection: ' + error.message);
+            }
+        }
+
+        async function changePassword() {
+            try {
+                const notebookData = await storage.loadEncrypted('notebook-data');
+                const currentHash = notebookData?.settings?.passwordHash;
+                
+                if (!currentHash) {
+                    alert('❌ No password is currently set.');
+                    return;
+                }
+
+                const result = await showPasswordModal('change', currentHash);
+                if (!result.success) return;
+
+                notebookData.settings.passwordHash = result.hash;
+                await storage.saveEncrypted('notebook-data', notebookData);
+                await updatePasswordStatus();
+                
+                // Notify notes list of changes
+                notifyPasswordSettingsChanged();
+                
+                alert('✅ Password changed successfully!');
+            } catch (error) {
+                console.error('Failed to change password:', error);
+                alert('❌ Failed to change password: ' + error.message);
+            }
+        }
+
+        async function disablePasswordProtection() {
+            try {
+                const notebookData = await storage.loadEncrypted('notebook-data');
+                const currentHash = notebookData?.settings?.passwordHash;
+                
+                if (!currentHash) {
+                    alert('❌ Password protection is not currently enabled.');
+                    return;
+                }
+
+                const result = await showPasswordModal('disable', currentHash);
+                if (!result.success) return;
+
+                notebookData.settings.passwordProtected = false;
+                notebookData.settings.passwordHash = null;
+                await storage.saveEncrypted('notebook-data', notebookData);
+                await updatePasswordStatus();
+                
+                // Notify notes list of changes
+                notifyPasswordSettingsChanged();
+                
+                alert('✅ Password protection disabled!\nYour notes are no longer password protected.');
+            } catch (error) {
+                console.error('Failed to disable password protection:', error);
+                alert('❌ Failed to disable password protection: ' + error.message);
+            }
+        }
+
+        function notifyPasswordSettingsChanged() {
+            // Try to notify the notes list if it's in an iframe
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({ action: 'password-settings-changed' }, '*');
+            }
+            
+            // Also try to find and notify any iframe containing notes-list
+            const frames = document.querySelectorAll('iframe');
+            frames.forEach(frame => {
+                try {
+                    frame.contentWindow.postMessage({ action: 'password-settings-changed' }, '*');
+                } catch (error) {
+                    // Ignore cross-origin errors
+                }
+            });
+
+            // Send a broadcast message to all windows/tabs
+            try {
+                localStorage.setItem('password-settings-changed', Date.now().toString());
+                localStorage.removeItem('password-settings-changed');
+            } catch (error) {
+                // Ignore localStorage errors
+            }
+        }
+
         // Event listeners
+        document.getElementById('enable-password-btn').addEventListener('click', enablePasswordProtection);
+        document.getElementById('change-password-btn').addEventListener('click', changePassword);
+        document.getElementById('disable-password-btn').addEventListener('click', disablePasswordProtection);
         document.getElementById('export-btn').addEventListener('click', exportAllData);
         document.getElementById('import-btn').addEventListener('click', importAllData);
         document.getElementById('preview-btn').addEventListener('click', previewData);

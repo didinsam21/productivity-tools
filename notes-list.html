@@ -268,6 +268,21 @@
             border-color: #9ca3af;
             color: #374151;
         }
+        .lock-btn {
+            background: #dc2626;
+            color: white;
+            border: 1px solid #dc2626;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .lock-btn:hover {
+            background: #b91c1c;
+            border-color: #b91c1c;
+        }
         @media (max-width: 768px) {
             .header {
                 padding: 10px 16px;
@@ -322,6 +337,11 @@
                     <span>📊</span>
                     <span id="total-words">0 words</span>
                 </div>
+                <div class="stat-item" id="lock-button-container" style="display: none;">
+                    <button class="lock-btn" id="manual-lock-btn" onclick="manualLock()" title="Lock notes">
+                        🔒 Lock
+                    </button>
+                </div>
             </div>
         </div>
         
@@ -343,6 +363,26 @@
             <div class="modal-footer">
                 <button id="modalCancel" class="btn btn-secondary">Cancel</button>
                 <button id="modalConfirm" class="btn btn-primary">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Password Protection Modal -->
+    <div id="passwordModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🔒 Password Required</h3>
+            </div>
+            <div class="modal-body">
+                <p>Enter your password to access your notes:</p>
+                <input type="password" id="passwordInput" class="modal-input" placeholder="Enter password..." autocomplete="current-password">
+                <div id="passwordError" style="color: #dc2626; font-size: 0.875rem; margin-top: 8px; display: none;">
+                    Incorrect password. Please try again.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="passwordCancel" class="btn btn-secondary">Cancel</button>
+                <button id="passwordSubmit" class="btn btn-primary">🔓 Unlock</button>
             </div>
         </div>
     </div>
@@ -551,6 +591,9 @@
         let tags = [];
         let storage = null;
         let currentSort = 'modified';
+        let isPasswordProtected = false;
+        let isUnlocked = false;
+        let passwordHash = null;
 
         // Initialize storage
         async function initStorage() {
@@ -583,6 +626,8 @@
                 if (data) {
                     notes = data.notes || {};
                     tags = data.tags || [];
+                    isPasswordProtected = data.settings?.passwordProtected || false;
+                    passwordHash = data.settings?.passwordHash || null;
                 } else {
                     // Default data
                     notes = {
@@ -598,9 +643,13 @@
                     tags = ['welcome'];
                 }
                 
+                // Check for stored unlock state from other components
+                checkStoredUnlockState();
+                
                 updateNotesList();
                 updateTagFilter();
                 updateStats();
+                updateLockButtonVisibility();
             } catch (error) {
                 console.error('Failed to load data:', error);
             }
@@ -612,11 +661,133 @@
                 const data = {
                     notes: notes,
                     tags: tags,
-                    settings: { encryptionEnabled: false }
+                    settings: { 
+                        encryptionEnabled: false,
+                        passwordProtected: isPasswordProtected,
+                        passwordHash: passwordHash
+                    }
                 };
                 await storage.saveEncrypted('notebook-data', data);
             } catch (error) {
                 console.error('Failed to save data:', error);
+            }
+        }
+
+        // Password protection functions
+        async function hashPassword(password) {
+            // Simple hash function for demo - in production, use stronger hashing
+            const encoder = new TextEncoder();
+            const data = encoder.encode(password + 'notes-salt-2025');
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        async function verifyPassword(inputPassword) {
+            if (!isPasswordProtected || !passwordHash) return true;
+            const inputHash = await hashPassword(inputPassword);
+            return inputHash === passwordHash;
+        }
+
+        function showPasswordModal() {
+            document.getElementById('passwordModal').style.display = 'flex';
+            document.getElementById('passwordInput').value = '';
+            document.getElementById('passwordError').style.display = 'none';
+            
+            // Focus the password input
+            setTimeout(() => document.getElementById('passwordInput').focus(), 100);
+            
+            return new Promise((resolve) => {
+                const handleSubmit = async () => {
+                    const password = document.getElementById('passwordInput').value;
+                    if (await verifyPassword(password)) {
+                        isUnlocked = true;
+                        // Store unlock state in sessionStorage for cross-component sharing
+                        sessionStorage.setItem('notes-unlocked', 'true');
+                        sessionStorage.setItem('notes-unlock-timestamp', Date.now().toString());
+                        hidePasswordModal();
+                        updateLockButtonVisibility();
+                        updateNotesList(); // Refresh the display to show unlocked content
+                        resolve(true);
+                    } else {
+                        document.getElementById('passwordError').style.display = 'block';
+                        document.getElementById('passwordInput').value = '';
+                        document.getElementById('passwordInput').focus();
+                    }
+                };
+                
+                const handleCancel = () => {
+                    hidePasswordModal();
+                    resolve(false);
+                };
+                
+                // Set up event listeners
+                document.getElementById('passwordSubmit').onclick = handleSubmit;
+                document.getElementById('passwordCancel').onclick = handleCancel;
+                
+                // Handle Enter key
+                document.getElementById('passwordInput').onkeypress = (e) => {
+                    if (e.key === 'Enter') handleSubmit();
+                    if (e.key === 'Escape') handleCancel();
+                };
+            });
+        }
+
+        function hidePasswordModal() {
+            document.getElementById('passwordModal').style.display = 'none';
+            // Clean up event listeners
+            document.getElementById('passwordSubmit').onclick = null;
+            document.getElementById('passwordCancel').onclick = null;
+            document.getElementById('passwordInput').onkeypress = null;
+        }
+
+        async function requirePasswordAuth() {
+            if (!isPasswordProtected) return true;
+            if (isUnlocked) return true;
+            
+            return await showPasswordModal();
+        }
+
+        function manualLock() {
+            if (isPasswordProtected && isUnlocked) {
+                console.log('🔒 Manual lock triggered');
+                isUnlocked = false;
+                // Clear stored unlock state
+                sessionStorage.removeItem('notes-unlocked');
+                sessionStorage.removeItem('notes-unlock-timestamp');
+                updateNotesList();
+                updateLockButtonVisibility();
+            }
+        }
+
+        function checkStoredUnlockState() {
+            // Check if we have a stored unlock state from a recent password entry
+            const unlocked = sessionStorage.getItem('notes-unlocked');
+            const timestamp = sessionStorage.getItem('notes-unlock-timestamp');
+            
+            if (unlocked === 'true' && timestamp) {
+                const unlockTime = parseInt(timestamp);
+                const now = Date.now();
+                const fiveMinutes = 5 * 60 * 1000; // 5 minutes in milliseconds
+                
+                // If unlock was recent (within 5 minutes), consider it valid
+                if (now - unlockTime < fiveMinutes) {
+                    console.log('🔓 Found recent unlock state, setting isUnlocked = true');
+                    isUnlocked = true;
+                } else {
+                    // Clean up expired unlock state
+                    sessionStorage.removeItem('notes-unlocked');
+                    sessionStorage.removeItem('notes-unlock-timestamp');
+                }
+            }
+        }
+
+        function updateLockButtonVisibility() {
+            const lockButtonContainer = document.getElementById('lock-button-container');
+            if (isPasswordProtected && isUnlocked) {
+                lockButtonContainer.style.display = 'block';
+            } else {
+                lockButtonContainer.style.display = 'none';
             }
         }
 
@@ -657,16 +828,20 @@
                 }
             });
 
+            // Check if content should be hidden due to password protection
+            const shouldHideContent = isPasswordProtected && !isUnlocked;
+
             container.innerHTML = allNotes.length ? allNotes.map(({id, note}) => {
-                const displayTitle = note.title || 'Untitled Note';
+                const displayTitle = shouldHideContent ? '🔒 Protected Note' : (note.title || 'Untitled Note');
                 const contentText = note.content.replace(/<[^>]*>/g, '');
-                const preview = contentText.substring(0, 150);
+                const preview = shouldHideContent ? 'Content is password protected' : contentText.substring(0, 150);
                 const wordCount = contentText.trim() ? contentText.trim().split(/\s+/).length : 0;
                 const createdDate = new Date(note.created).toLocaleDateString();
                 const modifiedDate = new Date(note.modified).toLocaleDateString();
-                const noteTags = note.tags || [];
+                const noteTags = shouldHideContent ? [] : (note.tags || []);
 
                 const tagsHTML = noteTags.map(tag => `<span class="tag-item">${tag}</span>`).join('');
+                const wordDisplay = shouldHideContent ? '-- words' : `${wordCount} words`;
 
                 return `<div class="note-item" data-note-id="${id}" onclick="viewNote('${id}')">
                     <div class="note-actions">
@@ -675,19 +850,19 @@
                     </div>
                     <div class="note-content">
                         <div class="note-title">${displayTitle}</div>
-                        <div class="note-preview">${preview}${preview.length >= 150 ? '...' : ''}</div>
+                        <div class="note-preview">${preview}${!shouldHideContent && preview.length >= 150 ? '...' : ''}</div>
                         <div class="note-meta">
                             <span>Created: ${createdDate}</span>
                             <span>Modified: ${modifiedDate}</span>
-                            <span>${wordCount} words</span>
+                            <span>${wordDisplay}</span>
                         </div>
                         <div class="note-tags">${tagsHTML}</div>
                     </div>
                 </div>`;
             }).join('') : `<div class="empty-state">
-                <div class="empty-icon">📝</div>
-                <h3>No notes found</h3>
-                <p>Create your first note to get started!</p>
+                <div class="empty-icon">${shouldHideContent ? '🔒' : '📝'}</div>
+                <h3>${shouldHideContent ? 'Notes are protected' : 'No notes found'}</h3>
+                <p>${shouldHideContent ? 'Enter your password to view your notes.' : 'Create your first note to get started!'}</p>
             </div>`;
         }
 
@@ -730,7 +905,12 @@
             updateNotesList();
         }
 
-        function createNote() {
+        async function createNote() {
+            // Check password authentication first
+            if (!(await requirePasswordAuth())) {
+                return;
+            }
+
             showInputModal('Enter note title:', '', (title) => {
                 if (!title || !title.trim()) return;
                 
@@ -754,6 +934,11 @@
         }
 
         async function editNote(noteId) {
+            // Check password authentication first
+            if (!(await requirePasswordAuth())) {
+                return;
+            }
+
             const note = notes[noteId];
             if (!note) {
                 console.error('Note not found:', noteId);
@@ -782,7 +967,12 @@
             }
         }
 
-        function deleteNote(noteId) {
+        async function deleteNote(noteId) {
+            // Check password authentication first
+            if (!(await requirePasswordAuth())) {
+                return;
+            }
+
             const note = notes[noteId];
             if (!note) return;
             
@@ -798,7 +988,12 @@
             );
         }
 
-        function openEditor() {
+        async function openEditor() {
+            // Check password authentication first
+            if (!(await requirePasswordAuth())) {
+                return;
+            }
+
             // Clear any existing editing session
             sessionStorage.removeItem('editingNoteId');
             
@@ -869,7 +1064,12 @@
         }
 
         // Note viewing functions
-        function viewNote(noteId) {
+        async function viewNote(noteId) {
+            // Check password authentication first
+            if (!(await requirePasswordAuth())) {
+                return;
+            }
+
             const note = notes[noteId];
             if (!note) return;
 
@@ -946,6 +1146,15 @@
         async function init() {
             await initStorage();
             
+            // Check if password protection is enabled and prompt for password
+            if (isPasswordProtected && !isUnlocked) {
+                // Show a brief loading state while data loads
+                setTimeout(async () => {
+                    await requirePasswordAuth();
+                    updateNotesList(); // Refresh display after authentication
+                }, 500);
+            }
+            
             // Listen for visibility changes to refresh data when switching back
             document.addEventListener('visibilitychange', () => {
                 if (!document.hidden) {
@@ -960,11 +1169,47 @@
                 setTimeout(refreshNotesData, 100);
             });
             
+            // Listen for window blur to re-lock if password protected
+            window.addEventListener('blur', () => {
+                if (isPasswordProtected && isUnlocked) {
+                    console.log('🔒 Window lost focus, re-locking notes...');
+                    isUnlocked = false;
+                    // Clear stored unlock state
+                    sessionStorage.removeItem('notes-unlocked');
+                    sessionStorage.removeItem('notes-unlock-timestamp');
+                    updateNotesList();
+                    updateLockButtonVisibility();
+                }
+            });
+            
             // Listen for messages from parent (in case we want to trigger refresh programmatically)
             window.addEventListener('message', (event) => {
                 if (event.data && event.data.action === 'refresh-notes') {
                     console.log('📥 Received refresh request');
                     refreshNotesData();
+                }
+                // Listen for password settings changes
+                if (event.data && event.data.action === 'password-settings-changed') {
+                    console.log('🔐 Password settings changed, refreshing...');
+                    isUnlocked = false; // Reset unlock state
+                    // Clear stored unlock state
+                    sessionStorage.removeItem('notes-unlocked');
+                    sessionStorage.removeItem('notes-unlock-timestamp');
+                    updateLockButtonVisibility();
+                    refreshNotesData();
+                }
+            });
+
+            // Listen for localStorage changes (for cross-tab communication)
+            window.addEventListener('storage', (event) => {
+                if (event.key === 'password-settings-changed') {
+                    console.log('🔐 Password settings changed (broadcast), refreshing...');
+                    isUnlocked = false; // Reset unlock state
+                    // Clear stored unlock state
+                    sessionStorage.removeItem('notes-unlocked');
+                    sessionStorage.removeItem('notes-unlock-timestamp');
+                    updateLockButtonVisibility();
+                    setTimeout(refreshNotesData, 100);
                 }
             });
         }

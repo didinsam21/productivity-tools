@@ -395,6 +395,9 @@
         let storage = null;
         let lastEditorContent = '';
         let lastScrollPosition = 0;
+        let isPasswordProtected = false;
+        let isUnlocked = false;
+        let passwordHash = null;
 
         // Initialize storage
         async function initStorage() {
@@ -427,6 +430,8 @@
                 if (data) {
                     notes = data.notes || {};
                     tags = data.tags || [];
+                    isPasswordProtected = data.settings?.passwordProtected || false;
+                    passwordHash = data.settings?.passwordHash || null;
                 } else {
                     // Default data
                     notes = {};
@@ -832,6 +837,12 @@
                         checkForEditingNote();
                     }
                 }
+                
+                // Listen for password settings changes
+                if (event.data && event.data.action === 'password-settings-changed') {
+                    console.log('🔐 Password settings changed in editor, reloading...');
+                    window.location.reload();
+                }
             });
             
             // Listen for visibility changes (when iframe becomes visible)
@@ -850,6 +861,14 @@
                 setTimeout(() => {
                     checkForEditingNote();
                 }, 100);
+            });
+
+            // Listen for localStorage changes (for cross-tab communication)
+            window.addEventListener('storage', (event) => {
+                if (event.key === 'password-settings-changed') {
+                    console.log('🔐 Password settings changed (broadcast), reloading editor...');
+                    window.location.reload();
+                }
             });
         }
 
@@ -915,8 +934,92 @@
             }
         }
 
+        // Password protection functions
+        async function hashPassword(password) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(password + 'notes-salt-2025');
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        async function verifyPassword(inputPassword) {
+            if (!isPasswordProtected || !passwordHash) return true;
+            const inputHash = await hashPassword(inputPassword);
+            return inputHash === passwordHash;
+        }
+
+        function showPasswordRequiredState() {
+            const mainContent = document.getElementById('main-content');
+            mainContent.innerHTML = `
+                <div class="empty-editor" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; text-align: center;">
+                    <div class="empty-icon" style="font-size: 4rem; margin-bottom: 20px;">🔒</div>
+                    <h2 style="margin-bottom: 16px; color: #1e293b;">Notes are Password Protected</h2>
+                    <p style="margin-bottom: 24px; color: #6b7280;">Please unlock your notes from the Notes List to access the editor.</p>
+                    <button class="btn btn-primary" onclick="goToNotesList()" style="margin-right: 12px;">📝 Go to Notes List</button>
+                    <button class="btn btn-secondary" onclick="tryUnlock()">🔓 Enter Password</button>
+                </div>
+            `;
+        }
+
+        function goToNotesList() {
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({ action: 'switch-tool', tool: 'notes-list' }, '*');
+            } else {
+                window.location.href = 'notes-list.html';
+            }
+        }
+
+        async function tryUnlock() {
+            const password = prompt('Enter your password:');
+            if (password && await verifyPassword(password)) {
+                // Store unlock state in sessionStorage before reload
+                sessionStorage.setItem('notes-unlocked', 'true');
+                sessionStorage.setItem('notes-unlock-timestamp', Date.now().toString());
+                // Reload the editor
+                window.location.reload();
+            } else if (password) {
+                alert('Incorrect password. Please try again.');
+            }
+        }
+
+        function checkStoredUnlockState() {
+            // Check if we have a stored unlock state from a recent password entry
+            const unlocked = sessionStorage.getItem('notes-unlocked');
+            const timestamp = sessionStorage.getItem('notes-unlock-timestamp');
+            
+            if (unlocked === 'true' && timestamp) {
+                const unlockTime = parseInt(timestamp);
+                const now = Date.now();
+                const fiveMinutes = 5 * 60 * 1000; // 5 minutes in milliseconds
+                
+                // If unlock was recent (within 5 minutes), consider it valid
+                if (now - unlockTime < fiveMinutes) {
+                    console.log('🔓 Found recent unlock state, setting isUnlocked = true');
+                    isUnlocked = true;
+                    // Clean up the stored state
+                    sessionStorage.removeItem('notes-unlocked');
+                    sessionStorage.removeItem('notes-unlock-timestamp');
+                } else {
+                    // Clean up expired unlock state
+                    sessionStorage.removeItem('notes-unlocked');
+                    sessionStorage.removeItem('notes-unlock-timestamp');
+                }
+            }
+        }
+
         async function init() {
             await initStorage();
+            
+            // Check for stored unlock state (for post-reload unlock)
+            checkStoredUnlockState();
+            
+            // Check if password protection is enabled
+            if (isPasswordProtected && !isUnlocked) {
+                showPasswordRequiredState();
+                return;
+            }
+            
             setupEventListeners();
             
             // Check for editing note again after a short delay to handle iframe timing
