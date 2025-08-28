@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="PWA Template - A Progressive Web App Template">
+    <meta name="theme-color" content="#4285f4">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="PWA Template">
+    
+    <!-- Icons -->
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512x512.png">
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+    
+    <!-- Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <title>PWA Template</title>
+</head>
+<body>
+    <div id="app">
+        <header class="header">
+            <h1>PWA Template</h1>
+            <button id="install-btn" class="install-btn" style="display: none;">Install App</button>
+        </header>
+        
+        <main class="main">
+            <section class="hero">
+                <h2>PWA Template</h2>
+                <p>A minimal Progressive Web App with encrypted storage.</p>
+            </section>
+            
+            <div id="status" class="status"></div>
+            
+            <section class="storage-demo">
+                <h3>Storage Demo</h3>
+                
+                <div class="demo-form">
+                    <input type="text" id="demo-key" placeholder="Key" value="demo-data">
+                    <textarea id="demo-data" placeholder="Data to store...">{"message": "Hello PWA!"}</textarea>
+                    <input type="password" id="demo-password" placeholder="Password (optional)">
+                    
+                    <div class="demo-buttons">
+                        <button id="save-data-btn" class="demo-btn save-btn">Save</button>
+                        <button id="load-data-btn" class="demo-btn load-btn">Load</button>
+                        <button id="export-data-btn" class="demo-btn export-btn">Export</button>
+                        <button id="import-data-btn" class="demo-btn import-btn">Import</button>
+                        <button id="inspect-storage-btn" class="demo-btn inspect-btn">Inspect</button>
+                        <button id="clear-data-btn" class="demo-btn clear-btn">Clear</button>
+                    </div>
+                </div>
+                
+                <div id="demo-output" class="demo-output"></div>
+            </section>
+        </main>
+        
+        <footer class="footer">
+            <p>&copy; 2024 PWA Template. Built with vanilla HTML, CSS, and JavaScript.</p>
+        </footer>
+    </div>
+    
+    <!-- Scripts -->
+    <script src="encrypted-storage.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
