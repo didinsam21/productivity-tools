@@ -173,6 +173,7 @@ class ProductivitySuite {
             'pomodoro': 'pomodoro.html',
             'checklist': 'checklist.html',
             'eisenhower': 'eisenhower.html',
+            'calendar': 'calendar.html',
             'settings': 'settings.html'
         };
 
@@ -355,7 +356,8 @@ class ProductivitySuite {
                 { key: 'notebook-data', name: 'notes' },
                 { key: 'pomodoro-data', name: 'pomodoro' },
                 { key: 'checklist-data', name: 'checklist' },
-                { key: 'eisenhower-data', name: 'eisenhower' }
+                { key: 'eisenhower-data', name: 'eisenhower' },
+                { key: 'calendar-data', name: 'calendar' }
             ];
 
             for (const {key, name} of toolKeys) {
@@ -413,7 +415,8 @@ class ProductivitySuite {
                         { key: 'notebook-data', name: 'notes' },
                         { key: 'pomodoro-data', name: 'pomodoro' },
                         { key: 'checklist-data', name: 'checklist' },
-                        { key: 'eisenhower-data', name: 'eisenhower' }
+                        { key: 'eisenhower-data', name: 'eisenhower' },
+                        { key: 'calendar-data', name: 'calendar' }
                     ];
 
                 let importedCount = 0;
@@ -454,7 +457,7 @@ class ProductivitySuite {
     
     try {
             // Clear data from all tools
-            const toolKeys = ['notebook-data', 'pomodoro-data', 'checklist-data', 'eisenhower-data'];
+            const toolKeys = ['notebook-data', 'pomodoro-data', 'checklist-data', 'eisenhower-data', 'calendar-data'];
             
             for (const key of toolKeys) {
                 try {
@@ -491,6 +494,7 @@ A unified Progressive Web App combining:
 • 🍅 Pomodoro timer for focus sessions  
 • ☑️ Project checklist management
 • 📊 Eisenhower priority matrix
+• 📅 Calendar with event management
 • ⚙️ Comprehensive settings panel
 
 Features:
