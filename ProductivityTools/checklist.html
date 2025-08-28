@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Checklist Template</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 0; }
+        h1, h3 { margin-top: 0; margin-bottom: 5px; }
+        .container { max-width: 800px; margin: 0 auto; padding: 5px; }
+        .sticky-header { position: sticky; top: 0; background-color: #fff; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .section { margin-bottom: 10px; padding: 10px; border: 1px solid #eee; position: relative; }
+        .control-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .progress-bar-container { height: 12px; background-color: #f0f0f0; border: 1px solid #ccc; margin-top: 10px; border-radius: 3px; }
+        .progress-bar-fill { height: 100%; background-color: #000000; transition: width 0.3s ease-in-out; border-radius: 3px; }
+        button { padding: 8px 12px; border: 1px solid #ccc; background-color: #f9f9f9; cursor: pointer; }
+        button:hover { background-color: #e9e9e9; }
+        input[type="text"] { padding: 8px 12px; border: 1px solid #ccc; }
+        .hidden { display: none; }
+        [contenteditable]:focus { outline: 2px solid black; }
+        ul { list-style: none; padding-left: 0; }
+        li { margin-bottom: 5px; }
+        .task-item-container, .subtask-item-container { display: flex; align-items: center; flex-grow: 1; }
+        .subtask-item-container { padding-left: 20px; }
+        .subtask-list { padding-left: 0; }
+        /* Styles for buttons to look like checkboxes */
+        .checkbox-style-button {
+            all: unset;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            width: 12px; 
+            height: 12px;
+            border: 1px solid #888;
+            background-color: #fff;
+            cursor: pointer;
+            font-size: 11px;
+            line-height: 1;
+            margin-right: 3px;
+            color: #333;
+            border-radius: 3px; 
+        }
+        .checkbox-style-button:hover { background-color: #f0f0f0; }
+        .add-button-container { margin-top: 5px; }
+        .subtask-add-button { margin-left: 20px; }
+        .task-add-button { margin-left: 0; }
+    </style>
+    <script src="storage.js"></script>
+</head>
+<body>
+
+	<div class="sticky-header">
+		<div class="container">
+			<div class="control-bar">
+				<div style="flex:1">
+					<div>
+						<span id="overall-progress-text">0/0 completed</span>
+					</div>
+					<div class="progress-bar-container">
+						<div id="overall-progress-bar" class="progress-bar-fill"></div>
+					</div>
+				</div>
+				<div style="display:flex; align-items:center; gap:6px; margin-left:10px">
+					<input id="projectTitleInput" type="text" value="Project Checklist Template">
+					<span id="auto-save-indicator" style="font-size: 12px; color: #666; opacity: 0; transition: opacity 0.3s;">Auto-saved</span>
+				</div>
+			</div>
+		</div>
+	</div>
+    
+    <div class="container" id="main-container">
+        <!-- Checklist -->
+        <div id="checklist-container"></div>
+        
+        <div class="section">
+            <button id="add-phase-button" data-action="add-phase" class="checkbox-style-button">+</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            // Initial data for the checklist
+            const initialProjectData = {
+                title: "Project Checklist Template",
+                phases: [
+                    {
+                        id: 'phase-1',
+                        title: 'Phase 1: Planning',
+                        tasks: [
+                            {
+                                id: 'phase-1-task-1',
+                                title: 'Define high-level objectives',
+                                subtasks: [
+                                    { id: 'phase-1-subtask-1-1', text: 'Brainstorm initial ideas and goals', checked: false },
+                                    { id: 'phase-1-subtask-1-2', text: 'Document the project\'s purpose and vision', checked: false },
+                                    { id: 'phase-1-subtask-1-3', text: 'Outline key deliverables and success metrics', checked: false }
+                                ]
+                            },
+                            {
+                                id: 'phase-1-task-2',
+                                title: 'Create a project plan',
+                                subtasks: [
+                                    { id: 'phase-1-subtask-2-1', text: 'Set a timeline and key milestones', checked: false },
+                                    { id: 'phase-1-subtask-2-2', text: 'Allocate resources (budget, team members, etc.)', checked: false }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        id: 'phase-2',
+                        title: 'Phase 2: Execution',
+                        tasks: [
+                            {
+                                id: 'phase-2-task-1',
+                                title: 'Implement project tasks',
+                                subtasks: [
+                                    { id: 'phase-2-subtask-1-1', text: 'Execute task A', checked: false },
+                                    { id: 'phase-2-subtask-1-2', text: 'Execute task B', checked: false }
+                                ]
+                            },
+                            {
+                                id: 'phase-2-task-2',
+                                title: 'Manage project workflow',
+                                subtasks: [
+                                    { id: 'phase-2-subtask-2-1', text: 'Hold regular team stand-ups', checked: false },
+                                    { id: 'phase-2-subtask-2-2', text: 'Track progress against the timeline', checked: false }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        id: 'phase-3',
+                        title: 'Phase 3: Review',
+                        tasks: [
+                            {
+                                id: 'phase-3-task-1',
+                                title: 'Perform a final review',
+                                subtasks: [
+                                    { id: 'phase-3-subtask-1-1', text: 'Validate all deliverables against objectives', checked: false },
+                                    { id: 'phase-3-subtask-1-2', text: 'Gather final feedback from stakeholders', checked: false }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            };
+
+            // Load data from storage or use initial data
+            let projectData = window.productivityStorage.loadAppData('checklist', initialProjectData);
+            if (!projectData) projectData = JSON.parse(JSON.stringify(initialProjectData));
+            
+            const mainContainer = document.getElementById('main-container');
+
+            function renderChecklist() {
+                const container = document.getElementById('checklist-container');
+                container.innerHTML = '';
+                
+                projectData.phases.forEach(phase => {
+                    let phaseHtml = `
+                        <div id="${phase.id}" class="section">
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <h3 contenteditable="true" data-type="phase" data-id="${phase.id}">${phase.title}</h3>
+                                <button data-action="delete-phase" data-phase-id="${phase.id}" title="Delete Phase" class="checkbox-style-button">−</button>
+                            </div>
+                            <div class="progress-bar-container">
+                                <div id="${phase.id}-progress-bar" class="progress-bar-fill"></div>
+                            </div>
+                            <ul class="task-list">
+                    `;
+                    phase.tasks.forEach(task => {
+                        phaseHtml += `
+                            <li class="task-list-item">
+                                <div class="task-item-container">
+                                    <button data-action="delete-task" data-phase-id="${phase.id}" data-task-id="${task.id}" title="Delete Task" class="checkbox-style-button">−</button>
+                                    <input type="checkbox" id="${task.id}" data-type="task-checkbox" data-phase="${phase.id}" class="main-checkbox" ${task.subtasks.every(s => s.checked) ? 'checked' : ''}>
+                                    <b><div contenteditable="true" data-type="task-text" data-phase-id="${phase.id}" data-id="${task.id}">${task.title}</div></b>
+                                </div>
+                                <ul class="subtask-list">
+                        `;
+                        task.subtasks.forEach(subtask => {
+                            phaseHtml += `
+                                    <li>
+                                        <div class="subtask-item-container">
+                                            <button data-action="delete-subtask" data-phase-id="${phase.id}" data-task-id="${task.id}" data-subtask-id="${subtask.id}" title="Delete Subtask" class="checkbox-style-button">−</button>
+                                            <input type="checkbox" id="${subtask.id}" data-type="subtask-checkbox" data-phase="${phase.id}" data-parent="${task.id}" ${subtask.checked ? 'checked' : ''}>
+                                            <div contenteditable="true" data-type="subtask-text" data-phase-id="${phase.id}" data-task-id="${task.id}" data-id="${subtask.id}">${subtask.text}</div>
+                                        </div>
+                                    </li>
+                            `;
+                        });
+                        phaseHtml += `
+                                    <li class="add-button-container subtask-add-button">
+                                        <button data-action="add-subtask" data-phase-id="${phase.id}" data-task-id="${task.id}" class="checkbox-style-button">+</button>
+                                    </li>
+                                </ul>
+                            </li>
+                            <hr>
+                        `;
+                    });
+                    phaseHtml += `
+                            </ul>
+                            <div class="add-button-container task-add-button">
+                                <button data-action="add-task" data-phase-id="${phase.id}" class="checkbox-style-button">+</button>
+                            </div>
+                        </div>
+                    `;
+                    container.innerHTML += phaseHtml;
+                });
+                updateAllProgress();
+            }
+
+            function updateDataState(element) {
+                const type = element.dataset.type;
+                const phaseId = element.dataset.phaseId;
+                
+                const phase = projectData.phases.find(p => p.id === phaseId);
+                if (!phase) return;
+
+                if (type === 'phase') {
+                    phase.title = element.textContent;
+                } else if (type === 'task-text') {
+                    const taskId = element.dataset.id;
+                    const task = phase.tasks.find(t => t.id === taskId);
+                    if (task) task.title = element.textContent;
+                } else if (type === 'subtask-text') {
+                    const taskId = element.dataset.taskId;
+                    const subtaskId = element.dataset.id;
+                    const task = phase.tasks.find(t => t.id === taskId);
+                    if (task) {
+                        const subtask = task.subtasks.find(s => s.id === subtaskId);
+                        if (subtask) subtask.text = element.textContent;
+                    }
+                }
+                // Auto-save after data changes
+                window.productivityStorage.autoSave('checklist', projectData);
+                showAutoSaveIndicator();
+            }
+
+            function showAutoSaveIndicator() {
+                const indicator = document.getElementById('auto-save-indicator');
+                indicator.style.opacity = '1';
+                setTimeout(() => {
+                    indicator.style.opacity = '0';
+                }, 2000);
+            }
+
+            function updateProgress(container, barId, textId) {
+                const subCheckboxes = container.querySelectorAll('input[type="checkbox"]:not(.main-checkbox)');
+                const totalItems = subCheckboxes.length;
+                const completedItems = Array.from(subCheckboxes).filter(c => c.checked).length;
+                const percentage = totalItems > 0 ? (completedItems / totalItems) * 100 : 0;
+                
+                const progressBar = document.getElementById(barId);
+                const progressText = document.getElementById(textId);
+                
+                if (progressBar) progressBar.style.width = `${percentage}%`;
+                if (progressText) progressText.textContent = `${completedItems}/${totalItems} completed`;
+            }
+
+            function updateMainCheckbox(parentMainId) { const parentMainCheckbox = document.getElementById(parentMainId); const parentContainer = parentMainCheckbox.closest('li'); const subCheckboxes = parentContainer.querySelectorAll('input[type="checkbox"]:not(.main-checkbox)'); parentMainCheckbox.checked = Array.from(subCheckboxes).every(c => c.checked); }
+
+            function updateAllProgress() { projectData.phases.forEach(p => updateProgress(document.getElementById(p.id), `${p.id}-progress-bar`)); updateProgress(document.body, 'overall-progress-bar', 'overall-progress-text'); }
+
+            document.body.addEventListener('click', async (event) => {
+                const target = event.target;
+                const action = target.dataset.action;
+
+                if (!action) return;
+
+                switch (action) {
+                    case 'add-phase':
+                        projectData.phases.push({ id: `phase-${Date.now()}`, title: 'New Phase', tasks: [] });
+                        renderChecklist();
+                        // Auto-save after adding phase
+                        window.productivityStorage.autoSave('checklist', projectData);
+                        showAutoSaveIndicator();
+                        break;
+                    case 'delete-phase':
+                        projectData.phases = projectData.phases.filter(p => p.id !== target.dataset.phaseId);
+                        renderChecklist();
+                        // Auto-save after deleting phase
+                        window.productivityStorage.autoSave('checklist', projectData);
+                        showAutoSaveIndicator();
+                        break;
+                    case 'add-task':
+                        const phaseForTask = projectData.phases.find(p => p.id === target.dataset.phaseId);
+                        if (phaseForTask) {
+                            phaseForTask.tasks.push({ id: `task-${Date.now()}`, title: 'New Task', subtasks: [] });
+                            renderChecklist();
+                            // Auto-save after adding task
+                            window.productivityStorage.autoSave('checklist', projectData);
+                            showAutoSaveIndicator();
+                        }
+                        break;
+                    case 'delete-task':
+                        const phaseForDeleteTask = projectData.phases.find(p => p.id === target.dataset.phaseId);
+                        if (phaseForDeleteTask) {
+                            phaseForDeleteTask.tasks = phaseForDeleteTask.tasks.filter(t => t.id !== target.dataset.taskId);
+                            renderChecklist();
+                            // Auto-save after deleting task
+                            window.productivityStorage.autoSave('checklist', projectData);
+                            showAutoSaveIndicator();
+                        }
+                        break;
+                    case 'add-subtask':
+                        const phaseForSubtask = projectData.phases.find(p => p.id === target.dataset.phaseId);
+                        const taskForSubtask = phaseForSubtask?.tasks.find(t => t.id === target.dataset.taskId);
+                        if (taskForSubtask) {
+                            taskForSubtask.subtasks.push({ id: `subtask-${Date.now()}`, text: 'New Subtask', checked: false });
+                            renderChecklist();
+                            // Auto-save after adding subtask
+                            window.productivityStorage.autoSave('checklist', projectData);
+                            showAutoSaveIndicator();
+                        }
+                        break;
+                    case 'delete-subtask':
+                        const phaseForDeleteSubtask = projectData.phases.find(p => p.id === target.dataset.phaseId);
+                        const taskForDeleteSubtask = phaseForDeleteSubtask?.tasks.find(t => t.id === target.dataset.taskId);
+                        if (taskForDeleteSubtask) {
+                            taskForDeleteSubtask.subtasks = taskForDeleteSubtask.subtasks.filter(s => s.id !== target.dataset.subtaskId);
+                            renderChecklist();
+                            // Auto-save after deleting subtask
+                            window.productivityStorage.autoSave('checklist', projectData);
+                            showAutoSaveIndicator();
+                        }
+                        break;
+
+                }
+            });
+
+            // Update the data model in real-time as the user types
+            document.body.addEventListener('input', (event) => { const target = event.target; if (target.contentEditable === 'true') { updateDataState(target); } });
+
+            document.body.addEventListener('change', (event) => {
+                const target = event.target;
+                if (target.type === 'checkbox') {
+                    const phaseId = target.dataset.phase;
+                    const taskId = target.dataset.parent || target.id;
+                    const subtaskId = target.dataset.parent ? target.id : null;
+
+                    const phase = projectData.phases.find(p => p.id === phaseId);
+                    if (!phase) return;
+
+                    const task = phase.tasks.find(t => t.id === taskId);
+                    if (!task) return;
+
+                    // Handle subtask checkbox change
+                    if (subtaskId) {
+                        const subtask = task.subtasks.find(s => s.id === subtaskId);
+                        if (subtask) subtask.checked = target.checked;
+                        updateMainCheckbox(task.id);
+                    } else { // Handle main task checkbox change
+                        task.subtasks.forEach(s => s.checked = target.checked);
+                    }
+                    
+                    updateAllProgress();
+                    // Auto-save after checkbox change
+                    window.productivityStorage.autoSave('checklist', projectData);
+                    showAutoSaveIndicator();
+                }
+            });
+
+            document.getElementById('projectTitleInput').addEventListener('input', (event) => { 
+                projectData.title = event.target.value; 
+                // Auto-save after title change
+                window.productivityStorage.autoSave('checklist', projectData);
+                showAutoSaveIndicator();
+            });
+
+            renderChecklist();
+        });
+    </script>
+</body>
+</html>

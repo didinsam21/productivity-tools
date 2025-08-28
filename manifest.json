@@ -1,7 +1,7 @@
 {
-  "name": "PWA Template",
-  "short_name": "PWA Template",
-  "description": "A Progressive Web App Template for mobile and desktop platforms",
+  "name": "Productivity Suite",
+  "short_name": "Productivity Suite",
+  "description": "A unified Progressive Web App combining note-taking and productivity tools with encrypted storage",
   "start_url": "./",
   "display": "standalone",
   "theme_color": "#4285f4",
@@ -9,7 +9,7 @@
   "orientation": "any",
   "scope": "./",
   "lang": "en",
-  "categories": ["productivity", "utilities"],
+  "categories": ["productivity", "utilities", "education"],
   "icons": [
     {
       "src": "icons/icon-192x192.png",

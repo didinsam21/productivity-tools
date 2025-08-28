@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Eisenhower Matrix</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 0; }
+        h1, h3 { margin-top: 0; margin-bottom: 5px; }
+        .container { max-width: 1000px; margin: 0 auto; padding: 5px; }
+        .section { margin-bottom: 10px; padding: 10px; border: 1px solid #eee; position: relative; }
+        .control-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .progress-bar-container { height: 12px; background-color: #f0f0f0; border: 1px solid #ccc; margin-top: 10px; border-radius: 3px; }
+        .progress-bar-fill { height: 100%; background-color: #000000; transition: width 0.3s ease-in-out; border-radius: 3px; }
+        button { padding: 8px 12px; border: 1px solid #ccc; background-color: #f9f9f9; cursor: pointer; }
+        button:hover { background-color: #e9e9e9; }
+        input[type="text"] { padding: 8px 12px; border: 1px solid #ccc; }
+        [contenteditable]:focus, input:focus { outline: 2px solid black; }
+        ul { list-style: none; padding-left: 0; }
+        li { margin-bottom: 6px; }
+        .grid-2x2 { display: grid; grid-template-columns: repeat(2, 1fr); grid-auto-rows: auto; gap: 8px; }
+        .muted { color: #666; font-size: 12px; }
+        .quad-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .task-item { display: flex; align-items: center; gap: 6px; }
+        .task-text { flex: 1; }
+        /* Match checklist + / − compact buttons */
+        .checkbox-style-button {
+            all: unset;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            width: 12px;
+            height: 12px;
+            border: 1px solid #888;
+            background-color: #fff;
+            cursor: pointer;
+            font-size: 11px;
+            line-height: 1;
+            margin-right: 3px;
+            color: #333;
+            border-radius: 3px;
+        }
+        .checkbox-style-button:hover { background-color: #f0f0f0; }
+        
+        /* Quadrant-specific styling */
+        .quadrant {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 12px;
+            min-height: 200px;
+            background: #fafafa;
+        }
+        
+        .quadrant-urgent-important {
+            border-color: #ff4444;
+            background: #fff5f5;
+        }
+        
+        .quadrant-not-urgent-important {
+            border-color: #ffaa00;
+            background: #fffbf0;
+        }
+        
+        .quadrant-urgent-not-important {
+            border-color: #00aaff;
+            background: #f0f9ff;
+        }
+        
+        .quadrant-not-urgent-not-important {
+            border-color: #888;
+            background: #f8f8f8;
+        }
+        
+        .quadrant h4 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .quadrant-urgent-important h4 { color: #ff4444; }
+        .quadrant-not-urgent-important h4 { color: #ffaa00; }
+        .quadrant-urgent-not-important h4 { color: #00aaff; }
+        .quadrant-not-urgent-not-important h4 { color: #888; }
+        
+        .task-list {
+            min-height: 120px;
+        }
+        
+        .task-item {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 8px;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .task-text {
+            flex: 1;
+            cursor: pointer;
+        }
+        
+        .task-text.completed {
+            text-decoration: line-through;
+            color: #888;
+        }
+        
+        .task-actions {
+            display: flex;
+            gap: 4px;
+        }
+        
+        .task-btn {
+            padding: 2px 6px;
+            font-size: 10px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .delete-btn {
+            background: #ff6b6b;
+            color: white;
+        }
+        
+        .move-btn {
+            background: #74c0fc;
+            color: white;
+        }
+    </style>
+    <link rel="icon" href="data:," />
+    <meta name="color-scheme" content="light" />
+    <script src="encrypted-storage.js"></script>
+</head>
+<body>
+    <div class="container" id="main-container">
+        <div class="section">
+            <div class="control-bar">
+                <div style="flex:1">
+                    <div>
+                        <span id="overall-progress-text">0 / 0 tasks completed (0%)</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div id="overall-progress-bar" class="progress-bar-fill"></div>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:6px; margin-left:10px">
+                    <input id="projectTitleInput" type="text" value="Eisenhower Matrix" />
+                    <span id="auto-save-indicator" style="font-size: 12px; color: #666; opacity: 0; transition: opacity 0.3s;">Auto-saved</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3>Priority Matrix</h3>
+                <button onclick="addNewTask()">+ Add Task</button>
+            </div>
+            
+            <div class="grid-2x2">
+                <!-- Quadrant 1: Urgent & Important -->
+                <div class="quadrant quadrant-urgent-important">
+                    <div class="quad-header">
+                        <h4>🔴 Urgent & Important</h4>
+                        <span class="muted">DO</span>
+                    </div>
+                    <div class="task-list" id="tasks-urgent-important"></div>
+                </div>
+
+                <!-- Quadrant 2: Not Urgent & Important -->
+                <div class="quadrant quadrant-not-urgent-important">
+                    <div class="quad-header">
+                        <h4>🟡 Not Urgent & Important</h4>
+                        <span class="muted">SCHEDULE</span>
+                    </div>
+                    <div class="task-list" id="tasks-not-urgent-important"></div>
+                </div>
+
+                <!-- Quadrant 3: Urgent & Not Important -->
+                <div class="quadrant quadrant-urgent-not-important">
+                    <div class="quad-header">
+                        <h4>🔵 Urgent & Not Important</h4>
+                        <span class="muted">DELEGATE</span>
+                    </div>
+                    <div class="task-list" id="tasks-urgent-not-important"></div>
+                </div>
+
+                <!-- Quadrant 4: Not Urgent & Not Important -->
+                <div class="quadrant quadrant-not-urgent-not-important">
+                    <div class="quad-header">
+                        <h4>⚫ Not Urgent & Not Important</h4>
+                        <span class="muted">ELIMINATE</span>
+                    </div>
+                    <div class="task-list" id="tasks-not-urgent-not-important"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
+                <div>
+                    <strong>Total Tasks:</strong>
+                    <div id="total-tasks">0</div>
+                </div>
+                <div>
+                    <strong>Completed:</strong>
+                    <div id="completed-tasks">0</div>
+                </div>
+                <div>
+                    <strong>Do First:</strong>
+                    <div id="urgent-important-count">0</div>
+                </div>
+                <div>
+                    <strong>Schedule:</strong>
+                    <div id="not-urgent-important-count">0</div>
+                </div>
+                <div>
+                    <strong>Delegate:</strong>
+                    <div id="urgent-not-important-count">0</div>
+                </div>
+                <div>
+                    <strong>Eliminate:</strong>
+                    <div id="not-urgent-not-important-count">0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Completed Tasks</h3>
+            <ul id="completed-task-list"></ul>
+            <div style="margin-top: 10px;">
+                <button onclick="clearCompleted()">Clear Completed</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let matrixData = {
+            projectTitle: 'Eisenhower Matrix',
+            tasks: []
+        };
+
+        let storage = null;
+        let taskIdCounter = 1;
+        let lastProjectTitle = '';
+
+        // Initialize storage
+        async function initStorage() {
+            try {
+                if (typeof EncryptedStorage !== 'undefined') {
+                    storage = new EncryptedStorage();
+                } else {
+                    // Fallback storage
+                    storage = {
+                        async saveEncrypted(key, data) {
+                            localStorage.setItem(key, JSON.stringify(data));
+                            return true;
+                        },
+                        async loadEncrypted(key) {
+                            const data = localStorage.getItem(key);
+                            return data ? JSON.parse(data) : null;
+                        }
+                    };
+                }
+                await loadData();
+            } catch (error) {
+                console.error('Storage initialization failed:', error);
+            }
+        }
+
+        // Load data from storage
+        async function loadData() {
+            try {
+                const data = await storage.loadEncrypted('eisenhower-data');
+                if (data) {
+                    matrixData = { ...matrixData, ...data };
+                    taskIdCounter = Math.max(...matrixData.tasks.map(t => t.id), 0) + 1;
+                } else {
+                    // Create default tasks
+                    matrixData.tasks = [
+                        {
+                            id: 1,
+                            text: 'Handle urgent client issue',
+                            quadrant: 'urgent-important',
+                            completed: false,
+                            createdAt: new Date().toISOString()
+                        },
+                        {
+                            id: 2,
+                            text: 'Plan next quarter strategy',
+                            quadrant: 'not-urgent-important',
+                            completed: false,
+                            createdAt: new Date().toISOString()
+                        },
+                        {
+                            id: 3,
+                            text: 'Respond to non-critical emails',
+                            quadrant: 'urgent-not-important',
+                            completed: false,
+                            createdAt: new Date().toISOString()
+                        },
+                        {
+                            id: 4,
+                            text: 'Browse social media',
+                            quadrant: 'not-urgent-not-important',
+                            completed: false,
+                            createdAt: new Date().toISOString()
+                        }
+                    ];
+                    taskIdCounter = 5;
+                }
+                
+                // Apply loaded data
+                document.getElementById('projectTitleInput').value = matrixData.projectTitle;
+                
+                renderTasks();
+                updateProgress();
+                updateStats();
+            } catch (error) {
+                console.error('Failed to load data:', error);
+            }
+        }
+
+        // Save data to storage
+        async function saveData() {
+            try {
+                // Update project title
+                matrixData.projectTitle = document.getElementById('projectTitleInput').value;
+                
+                await storage.saveEncrypted('eisenhower-data', matrixData);
+                showAutoSaveIndicator();
+                
+                // Save state for tool switching
+                saveMatrixState();
+            } catch (error) {
+                console.error('Failed to save data:', error);
+            }
+        }
+
+        function showAutoSaveIndicator() {
+            const indicator = document.getElementById('auto-save-indicator');
+            indicator.style.opacity = '1';
+            setTimeout(() => {
+                indicator.style.opacity = '0';
+            }, 2000);
+        }
+
+        function addNewTask() {
+            showInputModal('Add New Task', 'Enter task description:', (text) => {
+                if (!text || !text.trim()) return;
+                
+                showQuadrantModal('Choose Priority Quadrant', (selectedQuadrant) => {
+                    const newTask = {
+                        id: taskIdCounter++,
+                        text: text.trim(),
+                        quadrant: selectedQuadrant,
+                        completed: false,
+                        createdAt: new Date().toISOString()
+                    };
+                    
+                    matrixData.tasks.push(newTask);
+                    saveData();
+                    renderTasks();
+                    updateProgress();
+                    updateStats();
+                });
+            });
+        }
+
+        function toggleTask(taskId) {
+            const task = matrixData.tasks.find(t => t.id === taskId);
+            if (task) {
+                task.completed = !task.completed;
+                if (task.completed) {
+                    task.completedAt = new Date().toISOString();
+                } else {
+                    delete task.completedAt;
+                }
+                
+                saveData();
+                renderTasks();
+                updateProgress();
+                updateStats();
+            }
+        }
+
+        function deleteTask(taskId) {
+            showConfirmModal('Delete Task', 'Delete this task permanently? This cannot be undone.', () => {
+                matrixData.tasks = matrixData.tasks.filter(t => t.id !== taskId);
+                saveData();
+                renderTasks();
+                updateProgress();
+                updateStats();
+            });
+        }
+
+        function moveTask(taskId) {
+            showQuadrantModal('Move to Quadrant', (selectedQuadrant) => {
+                const task = matrixData.tasks.find(t => t.id === taskId);
+                if (task) {
+                    task.quadrant = selectedQuadrant;
+                    saveData();
+                    renderTasks();
+                    updateStats();
+                }
+            });
+        }
+
+        function editTaskText(taskId, element) {
+            const currentText = element.textContent;
+            showInputModal('Edit Task', 'Edit task description:', (newText) => {
+                if (newText !== null && newText.trim() !== '') {
+                    const task = matrixData.tasks.find(t => t.id === taskId);
+                    if (task) {
+                        task.text = newText.trim();
+                        element.textContent = newText.trim();
+                        saveData();
+                    }
+                }
+            }, currentText);
+        }
+
+        function renderTasks() {
+            const quadrants = ['urgent-important', 'not-urgent-important', 'urgent-not-important', 'not-urgent-not-important'];
+            
+            quadrants.forEach(quadrant => {
+                const container = document.getElementById(`tasks-${quadrant}`);
+                const tasks = matrixData.tasks.filter(t => t.quadrant === quadrant && !t.completed);
+                
+                container.innerHTML = tasks.map(task => `
+                    <div class="task-item">
+                        <button class="checkbox-style-button" onclick="toggleTask(${task.id})" style="${task.completed ? 'background-color: #4CAF50; color: white;' : ''}">
+                            ${task.completed ? '✓' : ''}
+                        </button>
+                        <span class="task-text ${task.completed ? 'completed' : ''}" onclick="editTaskText(${task.id}, this)">${task.text}</span>
+                        <div class="task-actions">
+                            <button class="task-btn move-btn" onclick="moveTask(${task.id})" title="Move to different quadrant">↔</button>
+                            <button class="task-btn delete-btn" onclick="deleteTask(${task.id})" title="Delete task">×</button>
+                        </div>
+                    </div>
+                `).join('');
+                
+                if (tasks.length === 0) {
+                    container.innerHTML = '<div class="muted" style="text-align: center; padding: 20px;">No tasks in this quadrant</div>';
+                }
+            });
+            
+            // Render completed tasks
+            renderCompletedTasks();
+        }
+
+        function renderCompletedTasks() {
+            const completedTasks = matrixData.tasks.filter(t => t.completed);
+            const container = document.getElementById('completed-task-list');
+            
+            container.innerHTML = completedTasks.map(task => {
+                const quadrantNames = {
+                    'urgent-important': 'Urgent & Important',
+                    'not-urgent-important': 'Not Urgent & Important',
+                    'urgent-not-important': 'Urgent & Not Important',
+                    'not-urgent-not-important': 'Not Urgent & Not Important'
+                };
+                
+                const completedDate = task.completedAt ? new Date(task.completedAt).toLocaleDateString() : 'Unknown';
+                
+                return `
+                    <li style="margin-bottom: 8px; padding: 8px; background: #f9f9f9; border-radius: 4px; border-left: 4px solid #4CAF50;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <span style="text-decoration: line-through; color: #666;">${task.text}</span>
+                                <div style="font-size: 12px; color: #888;">
+                                    ${quadrantNames[task.quadrant]} • Completed: ${completedDate}
+                                </div>
+                            </div>
+                            <button onclick="toggleTask(${task.id})" style="background: #4CAF50; color: white; border: none; border-radius: 3px; padding: 4px 8px; cursor: pointer;" title="Mark as incomplete">↶</button>
+                        </div>
+                    </li>
+                `;
+            }).join('');
+            
+            if (completedTasks.length === 0) {
+                container.innerHTML = '<li style="color: #888; font-style: italic;">No completed tasks</li>';
+            }
+        }
+
+        function updateProgress() {
+            const totalTasks = matrixData.tasks.length;
+            const completedTasks = matrixData.tasks.filter(t => t.completed).length;
+            const percentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+            
+            document.getElementById('overall-progress-text').textContent = `${completedTasks} / ${totalTasks} tasks completed (${percentage}%)`;
+            document.getElementById('overall-progress-bar').style.width = `${percentage}%`;
+        }
+
+        function updateStats() {
+            const totalTasks = matrixData.tasks.length;
+            const completedTasks = matrixData.tasks.filter(t => t.completed).length;
+            
+            const quadrantCounts = {
+                'urgent-important': matrixData.tasks.filter(t => t.quadrant === 'urgent-important' && !t.completed).length,
+                'not-urgent-important': matrixData.tasks.filter(t => t.quadrant === 'not-urgent-important' && !t.completed).length,
+                'urgent-not-important': matrixData.tasks.filter(t => t.quadrant === 'urgent-not-important' && !t.completed).length,
+                'not-urgent-not-important': matrixData.tasks.filter(t => t.quadrant === 'not-urgent-not-important' && !t.completed).length
+            };
+            
+            document.getElementById('total-tasks').textContent = totalTasks;
+            document.getElementById('completed-tasks').textContent = completedTasks;
+            document.getElementById('urgent-important-count').textContent = quadrantCounts['urgent-important'];
+            document.getElementById('not-urgent-important-count').textContent = quadrantCounts['not-urgent-important'];
+            document.getElementById('urgent-not-important-count').textContent = quadrantCounts['urgent-not-important'];
+            document.getElementById('not-urgent-not-important-count').textContent = quadrantCounts['not-urgent-not-important'];
+        }
+
+        function clearCompleted() {
+            showConfirmModal('Clear Completed Tasks', 'Remove all completed tasks permanently? This cannot be undone.', () => {
+                matrixData.tasks = matrixData.tasks.filter(t => !t.completed);
+                saveData();
+                renderTasks();
+                updateProgress();
+                updateStats();
+            });
+        }
+
+        // Project title auto-save
+        document.getElementById('projectTitleInput').addEventListener('input', function() {
+            clearTimeout(this.saveTimeout);
+            this.saveTimeout = setTimeout(() => {
+                saveData();
+            }, 1000);
+        });
+
+        // Modal functions
+        function showInputModal(title, message, onConfirm, defaultValue = '') {
+            // Create modal if it doesn't exist
+            if (!document.getElementById('modalOverlay')) {
+                createModal();
+            }
+            
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalMessage').textContent = message;
+            document.getElementById('modalInput').style.display = 'block';
+            document.getElementById('modalInput').value = defaultValue;
+            document.getElementById('modalOverlay').style.display = 'flex';
+            
+            // Focus the input
+            setTimeout(() => document.getElementById('modalInput').focus(), 100);
+            
+            // Handle confirm
+            const handleConfirm = () => {
+                const value = document.getElementById('modalInput').value;
+                hideModal();
+                onConfirm(value);
+            };
+            
+            // Handle cancel
+            const handleCancel = () => {
+                hideModal();
+            };
+            
+            // Set up event listeners
+            document.getElementById('modalConfirm').onclick = handleConfirm;
+            document.getElementById('modalCancel').onclick = handleCancel;
+            
+            // Handle Enter key
+            document.getElementById('modalInput').onkeypress = (e) => {
+                if (e.key === 'Enter') handleConfirm();
+                if (e.key === 'Escape') handleCancel();
+            };
+        }
+        
+        function showConfirmModal(title, message, onConfirm) {
+            // Create modal if it doesn't exist
+            if (!document.getElementById('modalOverlay')) {
+                createModal();
+            }
+            
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalMessage').textContent = message;
+            document.getElementById('modalInput').style.display = 'none';
+            document.getElementById('modalOverlay').style.display = 'flex';
+            
+            // Handle confirm
+            document.getElementById('modalConfirm').onclick = () => {
+                hideModal();
+                onConfirm();
+            };
+            
+            // Handle cancel
+            document.getElementById('modalCancel').onclick = hideModal;
+        }
+        
+        function showQuadrantModal(title, onConfirm) {
+            // Create modal if it doesn't exist
+            if (!document.getElementById('modalOverlay')) {
+                createModal();
+            }
+            
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalMessage').innerHTML = `
+                <div style="margin-bottom: 16px;">Select a priority quadrant:</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <button id="quadrant1" class="quadrant-btn" style="padding: 12px; border: 2px solid #ff4444; border-radius: 6px; background: #fff5f5; color: #ff4444; cursor: pointer;">
+                        🔴 Urgent & Important<br><small>DO</small>
+                    </button>
+                    <button id="quadrant2" class="quadrant-btn" style="padding: 12px; border: 2px solid #ffaa00; border-radius: 6px; background: #fffbf0; color: #ffaa00; cursor: pointer;">
+                        🟡 Not Urgent & Important<br><small>SCHEDULE</small>
+                    </button>
+                    <button id="quadrant3" class="quadrant-btn" style="padding: 12px; border: 2px solid #00aaff; border-radius: 6px; background: #f0f9ff; color: #00aaff; cursor: pointer;">
+                        🔵 Urgent & Not Important<br><small>DELEGATE</small>
+                    </button>
+                    <button id="quadrant4" class="quadrant-btn" style="padding: 12px; border: 2px solid #888; border-radius: 6px; background: #f8f8f8; color: #888; cursor: pointer;">
+                        ⚫ Not Urgent & Not Important<br><small>ELIMINATE</small>
+                    </button>
+                </div>
+            `;
+            document.getElementById('modalInput').style.display = 'none';
+            document.getElementById('modalConfirm').style.display = 'none';
+            document.getElementById('modalOverlay').style.display = 'flex';
+            
+            const quadrantMap = {
+                'quadrant1': 'urgent-important',
+                'quadrant2': 'not-urgent-important',
+                'quadrant3': 'urgent-not-important',
+                'quadrant4': 'not-urgent-not-important'
+            };
+            
+            // Handle quadrant selection
+            document.querySelectorAll('.quadrant-btn').forEach(btn => {
+                btn.onclick = () => {
+                    hideModal();
+                    document.getElementById('modalConfirm').style.display = 'inline-flex';
+                    onConfirm(quadrantMap[btn.id]);
+                };
+            });
+            
+            // Handle cancel
+            document.getElementById('modalCancel').onclick = () => {
+                hideModal();
+                document.getElementById('modalConfirm').style.display = 'inline-flex';
+            };
+        }
+        
+        function createModal() {
+            const modalHTML = `
+                <div id="modalOverlay" class="modal-overlay" style="display: none;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3 id="modalTitle">Modal Title</h3>
+                        </div>
+                        <div class="modal-body">
+                            <div id="modalMessage">Modal message</div>
+                            <input type="text" id="modalInput" class="modal-input" style="display: none;" placeholder="Enter text...">
+                        </div>
+                        <div class="modal-footer">
+                            <button id="modalCancel" class="btn btn-secondary">Cancel</button>
+                            <button id="modalConfirm" class="btn btn-primary">OK</button>
+                        </div>
+                    </div>
+                </div>
+                <style>
+                    .modal-overlay {
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        bottom: 0;
+                        background: rgba(0, 0, 0, 0.5);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        z-index: 1000;
+                    }
+                    .modal-content {
+                        background: white;
+                        border-radius: 12px;
+                        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+                        min-width: 420px;
+                        max-width: 650px;
+                        margin: 20px;
+                        overflow: hidden;
+                    }
+                    .modal-header {
+                        padding: 24px 32px 20px 32px;
+                        border-bottom: 1px solid #e2e8f0;
+                        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+                    }
+                    .modal-header h3 {
+                        margin: 0;
+                        font-size: 1.25rem;
+                        font-weight: 600;
+                        color: #1e293b;
+                    }
+                    .modal-body {
+                        padding: 32px;
+                        background: #fefefe;
+                    }
+                    .modal-input {
+                        width: 100%;
+                        padding: 16px 20px;
+                        border: 2px solid #e2e8f0;
+                        border-radius: 10px;
+                        font-size: 16px;
+                        outline: none;
+                        margin-top: 16px;
+                        background: #ffffff;
+                        transition: all 0.2s ease;
+                        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+                        box-sizing: border-box;
+                    }
+                    .modal-input:focus {
+                        border-color: #3b82f6;
+                        box-shadow: 0 0 0 4px rgba(59,130,246,0.15), 0 4px 16px rgba(0, 0, 0, 0.1);
+                        transform: translateY(-1px);
+                    }
+                    .modal-input::placeholder {
+                        color: #94a3b8;
+                    }
+                    .modal-footer {
+                        padding: 24px 32px;
+                        border-top: 1px solid #e2e8f0;
+                        display: flex;
+                        gap: 12px;
+                        justify-content: flex-end;
+                        background: #f8fafc;
+                    }
+                    .btn {
+                        padding: 12px 24px;
+                        border-radius: 8px;
+                        font-size: 14px;
+                        font-weight: 500;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                        border: none;
+                    }
+                    .btn-primary {
+                        background: #3b82f6;
+                        color: white;
+                    }
+                    .btn-primary:hover {
+                        background: #2563eb;
+                        transform: translateY(-1px);
+                        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+                    }
+                    .btn-secondary {
+                        background: #e2e8f0;
+                        color: #64748b;
+                    }
+                    .btn-secondary:hover {
+                        background: #cbd5e1;
+                        color: #475569;
+                    }
+                    .quadrant-btn:hover {
+                        transform: scale(1.02);
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    }
+                </style>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+        }
+        
+        function hideModal() {
+            const overlay = document.getElementById('modalOverlay');
+            if (overlay) {
+                overlay.style.display = 'none';
+                // Clean up event listeners
+                document.getElementById('modalConfirm').onclick = null;
+                document.getElementById('modalCancel').onclick = null;
+                const input = document.getElementById('modalInput');
+                if (input) input.onkeypress = null;
+            }
+        }
+
+        // Save matrix state for persistence across tool switches
+        function saveMatrixState() {
+            const projectTitleInput = document.getElementById('projectTitleInput');
+            const state = {
+                projectTitle: projectTitleInput ? projectTitleInput.value : matrixData.projectTitle,
+                timestamp: Date.now()
+            };
+            sessionStorage.setItem('eisenhower-state', JSON.stringify(state));
+        }
+
+        // Restore matrix state when returning to Eisenhower matrix
+        function restoreMatrixState() {
+            try {
+                const savedState = sessionStorage.getItem('eisenhower-state');
+                if (savedState) {
+                    const state = JSON.parse(savedState);
+                    
+                    // Check if state is recent (within last hour)
+                    const now = Date.now();
+                    const stateAge = now - (state.timestamp || 0);
+                    const oneHour = 60 * 60 * 1000;
+                    
+                    if (stateAge < oneHour) {
+                        // Restore project title
+                        if (state.projectTitle) {
+                            matrixData.projectTitle = state.projectTitle;
+                            const projectTitleInput = document.getElementById('projectTitleInput');
+                            if (projectTitleInput) {
+                                projectTitleInput.value = state.projectTitle;
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.log('Could not restore matrix state:', error);
+            }
+        }
+
+        // Initialize when page loads
+        async function init() {
+            await initStorage();
+            restoreMatrixState();
+        }
+
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

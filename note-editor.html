@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, maximum-scale=5.0">
+    <title>✏️ Note Editor</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            color: #334155;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .header {
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            z-index: 50;
+            min-height: 60px;
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+            min-width: 0;
+        }
+        .header-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin: 0;
+            white-space: nowrap;
+        }
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: nowrap;
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-primary {
+            background: #3b82f6;
+            color: #fff;
+        }
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+        .btn-secondary {
+            background: #f1f5f9;
+            color: #475569;
+        }
+        .btn-secondary:hover {
+            background: #e2e8f0;
+        }
+        .main-content {
+            height: calc(100vh - 60px);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .editor-header {
+            padding: 16px;
+            border-bottom: 1px solid #f1f5f9;
+            background: #fff;
+            z-index: 10;
+        }
+        .note-title-display {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 12px;
+        }
+        .note-title-input {
+            width: 100%;
+            padding: 8px 0;
+            border: none;
+            outline: none;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1e293b;
+            background: transparent;
+            margin-bottom: 12px;
+        }
+        .note-title-input:focus {
+            border-bottom: 2px solid #3b82f6;
+        }
+        .tag-management {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .note-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .tag-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: #e0f2fe;
+            color: #0369a1;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            border: 1px solid #0284c7;
+        }
+        .tag-remove {
+            background: none;
+            border: none;
+            color: #0369a1;
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 0;
+            margin-left: 2px;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .tag-remove:hover {
+            background: #0284c7;
+            color: #fff;
+        }
+        .add-tag-btn {
+            background: #10b981;
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-size: 0.7rem;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 2px;
+        }
+        .add-tag-btn:hover {
+            background: #059669;
+        }
+        .editor-toolbar {
+            padding: 8px 16px;
+            border-bottom: 1px solid #f1f5f9;
+            background: #f8fafc;
+            z-index: 9;
+            overflow-x: auto;
+        }
+        .toolbar-scroll {
+            display: flex;
+            gap: 4px;
+            min-width: max-content;
+            padding-bottom: 4px;
+        }
+        .toolbar-group {
+            display: flex;
+            gap: 1px;
+            padding: 2px;
+            border-radius: 6px;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            flex-shrink: 0;
+        }
+        .toolbar-btn {
+            padding: 6px 8px;
+            border: none;
+            background: transparent;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+            white-space: nowrap;
+            min-width: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .toolbar-btn:hover {
+            background: #f1f5f9;
+            color: #3b82f6;
+        }
+        .toolbar-btn.active {
+            background: #3b82f6;
+            color: #fff;
+        }
+        .editor-content {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            background: #fff;
+        }
+        .editor-textarea {
+            min-height: calc(100vh - 300px);
+            outline: none;
+            line-height: 1.6;
+            font-size: 1rem;
+            word-wrap: break-word;
+            width: 100%;
+            border: none;
+            background: none;
+            resize: none;
+        }
+        .editor-textarea:empty::before {
+            content: "Start writing your note...";
+            color: #9ca3af;
+        }
+        .status-bar {
+            padding: 12px 16px;
+            border-top: 1px solid #f1f5f9;
+            background: #f8fafc;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
+            color: #6b7280;
+            z-index: 10;
+        }
+        .auto-save-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .save-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #10b981;
+        }
+        .save-dot.saving {
+            background: #f59e0b;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .note-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .note-select {
+            padding: 6px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            background: #fff;
+            outline: none;
+            min-width: 200px;
+            cursor: pointer;
+        }
+        .note-select:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+        }
+        .empty-editor {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+            color: #6b7280;
+            padding: 40px 20px;
+        }
+        .empty-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+        @media (max-width: 768px) {
+            .header {
+                padding: 10px 16px;
+            }
+            .header-title {
+                font-size: 1.1rem;
+            }
+            .tag-management {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .note-selector {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .note-select {
+                min-width: unset;
+            }
+        }
+    </style>
+    <script src="encrypted-storage.js"></script>
+</head>
+<body>
+
+    <div class="main-content" id="main-content">
+        <!-- Empty state -->
+        <div class="empty-editor" id="empty-editor">
+            <div class="empty-icon">✏️</div>
+            <div style="margin-top: 20px;">
+                <button class="btn btn-primary" onclick="createNewNote()">📝 Create New Note</button>
+            </div>
+        </div>
+
+        <!-- Editor interface -->
+        <div id="editor-interface" style="display: none; height: 100%; flex-direction: column;">
+            <div class="editor-header">
+                <div class="note-selector">
+                    <label for="noteSelect" style="font-weight: 500; color: #6b7280;">Note:</label>
+                    <select class="note-select" id="noteSelect" onchange="loadSelectedNote()">
+                        <option value="">Select a note...</option>
+                    </select>
+                    <button class="btn btn-secondary" onclick="createNewNote()">📝 New</button>
+                    <button class="btn btn-primary" onclick="saveNote()" id="save-btn">💾 Save</button>
+                </div>
+                
+                <input type="text" class="note-title-input" id="noteTitleInput" placeholder="Note title...">
+                
+                <div class="tag-management">
+                    <label for="tagInput" style="font-size:0.9rem;color:#6b7280;margin-right:8px;">Tags:</label>
+                    <input type="text" id="tagInput" placeholder="Add tag..." style="padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 14px;" onkeypress="handleTagInput(event)">
+                    <button class="add-tag-btn" onclick="addTag()">+ Add</button>
+                    <div class="note-tags" id="noteTags"></div>
+                </div>
+
+            </div>
+            
+            <div class="editor-toolbar">
+                <div class="toolbar-scroll">
+                    <div class="toolbar-group">
+                        <button class="toolbar-btn" onclick="toggleFormat('bold')" data-format="bold" title="Bold"><strong>B</strong></button>
+                        <button class="toolbar-btn" onclick="toggleFormat('italic')" data-format="italic" title="Italic"><em>I</em></button>
+                        <button class="toolbar-btn" onclick="toggleFormat('underline')" data-format="underline" title="Underline"><u>U</u></button>
+                        <button class="toolbar-btn" onclick="toggleFormat('strikeThrough')" data-format="strikeThrough" title="Strikethrough"><s>S</s></button>
+                    </div>
+                    <div class="toolbar-group">
+                        <button class="toolbar-btn" onclick="formatHeading('h1')" data-format="h1" title="Heading 1">H1</button>
+                        <button class="toolbar-btn" onclick="formatHeading('h2')" data-format="h2" title="Heading 2">H2</button>
+                        <button class="toolbar-btn" onclick="formatHeading('h3')" data-format="h3" title="Heading 3">H3</button>
+                        <button class="toolbar-btn" onclick="formatHeading('p')" data-format="p" title="Paragraph">P</button>
+                    </div>
+                    <div class="toolbar-group">
+                        <button class="toolbar-btn" onclick="toggleFormat('insertUnorderedList')" data-format="insertUnorderedList" title="Bullet List">• List</button>
+                        <button class="toolbar-btn" onclick="toggleFormat('insertOrderedList')" data-format="insertOrderedList" title="Numbered List">1. List</button>
+                        <button class="toolbar-btn" onclick="toggleCodeFormat()" data-format="code" title="Code">&lt;/&gt;</button>
+                        <button class="toolbar-btn" onclick="toggleQuoteFormat()" data-format="quote" title="Quote">❝</button>
+                    </div>
+                    <div class="toolbar-group">
+                        <button class="toolbar-btn" onclick="createLink()" data-format="createLink" title="Insert Link">🔗</button>
+                        <button class="toolbar-btn" onclick="insertImage()" title="Insert Image">🖼</button>
+                        <button class="toolbar-btn" onclick="clearFormatting()" title="Clear Formatting">🧹</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="editor-content">
+                <div class="editor-textarea" contenteditable="true" id="editor"></div>
+            </div>
+            
+            <div class="status-bar">
+                <div class="auto-save-indicator">
+                    <div class="save-dot" id="saveDot"></div>
+                    <span id="saveStatus">All changes saved</span>
+                </div>
+                <div id="wordCount">0 words</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state using encrypted storage
+        let notes = {};
+        let tags = [];
+        let currentNoteId = null;
+        let autoSaveTimer = null;
+        let storage = null;
+        let lastEditorContent = '';
+        let lastScrollPosition = 0;
+
+        // Initialize storage
+        async function initStorage() {
+            try {
+                if (typeof EncryptedStorage !== 'undefined') {
+                    storage = new EncryptedStorage();
+                } else {
+                    // Fallback storage
+                    storage = {
+                        async saveEncrypted(key, data) {
+                            localStorage.setItem(key, JSON.stringify(data));
+                            return true;
+                        },
+                        async loadEncrypted(key) {
+                            const data = localStorage.getItem(key);
+                            return data ? JSON.parse(data) : null;
+                        }
+                    };
+                }
+                await loadData();
+            } catch (error) {
+                console.error('Storage initialization failed:', error);
+            }
+        }
+
+        // Load data from storage
+        async function loadData() {
+            try {
+                const data = await storage.loadEncrypted('notebook-data');
+                if (data) {
+                    notes = data.notes || {};
+                    tags = data.tags || [];
+                } else {
+                    // Default data
+                    notes = {};
+                    tags = [];
+                }
+                
+                updateNoteSelector();
+                
+                // Check if we should load a specific note from session storage
+                const editingNoteId = sessionStorage.getItem('editingNoteId');
+                const editingNoteData = sessionStorage.getItem('editingNoteData');
+                
+                console.log('🔍 Note editor checking for editing session:', {
+                    editingNoteId,
+                    hasEditingData: !!editingNoteData,
+                    notesLoaded: Object.keys(notes).length
+                });
+                
+                if (editingNoteId) {
+                    console.log('📝 Found note to edit:', editingNoteId);
+                    
+                    // If we have backup note data, use it to ensure the note exists
+                    if (editingNoteData && !notes[editingNoteId]) {
+                        try {
+                            const noteData = JSON.parse(editingNoteData);
+                            notes[editingNoteId] = noteData;
+                            console.log('📦 Loaded note from backup data:', noteData.title);
+                        } catch (error) {
+                            console.error('❌ Error parsing backup note data:', error);
+                        }
+                    }
+                    
+                    if (notes[editingNoteId]) {
+                        console.log('✅ Note found, loading in editor...');
+                        // Use setTimeout to ensure the note selector is updated first
+                        setTimeout(() => {
+                            loadNote(editingNoteId);
+                            sessionStorage.removeItem('editingNoteId'); // Clear after use
+                            sessionStorage.removeItem('editingNoteData'); // Clear backup data
+                            console.log('🎯 Successfully loaded note in editor:', notes[editingNoteId].title);
+                        }, 50);
+                    } else {
+                        console.error('❌ Note not found even with backup data:', editingNoteId);
+                        showEmptyState();
+                    }
+                } else {
+                    console.log('📄 No editing session found, showing empty state');
+                    showEmptyState();
+                }
+            } catch (error) {
+                console.error('Failed to load data:', error);
+            }
+        }
+
+        // Save data to storage
+        async function saveData() {
+            try {
+                const data = {
+                    notes: notes,
+                    tags: tags,
+                    settings: { encryptionEnabled: false }
+                };
+                await storage.saveEncrypted('notebook-data', data);
+                setSaveStatus('saved');
+            } catch (error) {
+                console.error('Failed to save data:', error);
+            }
+        }
+
+        function setSaveStatus(status) {
+            const dot = document.getElementById('saveDot');
+            const text = document.getElementById('saveStatus');
+            if (status === 'saving') {
+                dot.classList.add('saving');
+                text.textContent = 'Saving...';
+            } else {
+                dot.classList.remove('saving');
+                text.textContent = 'All changes saved';
+            }
+        }
+
+        function scheduleAutoSave() {
+            setSaveStatus('saving');
+            clearTimeout(autoSaveTimer);
+            
+            // Save editor state immediately for tool switching
+            saveEditorState();
+            
+            autoSaveTimer = setTimeout(async () => {
+                if (currentNoteId) {
+                    await saveCurrentNote();
+                    await saveData();
+                }
+            }, 1000);
+        }
+
+        function updateWordCount() {
+            const content = document.getElementById('editor').textContent || '';
+            const words = content.trim() ? content.trim().split(/\s+/).length : 0;
+            document.getElementById('wordCount').textContent = `${words} word${words !== 1 ? 's' : ''}`;
+        }
+
+        async function saveCurrentNote() {
+            if (!currentNoteId || !notes[currentNoteId]) return;
+            
+            const title = document.getElementById('noteTitleInput').value.trim();
+            const content = document.getElementById('editor').innerHTML;
+            
+            notes[currentNoteId].title = title || 'Untitled Note';
+            notes[currentNoteId].content = content;
+            notes[currentNoteId].modified = new Date().toISOString();
+            
+            updateNoteSelector();
+            
+            // Notify that note has been modified for potential refresh
+            notifyNoteModified();
+        }
+        
+        function notifyNoteModified() {
+            // Send message to parent to refresh notes list if needed
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({
+                    action: 'note-modified',
+                    noteId: currentNoteId
+                }, '*');
+            }
+        }
+
+        function showEmptyState() {
+            document.getElementById('empty-editor').style.display = 'flex';
+            document.getElementById('editor-interface').style.display = 'none';
+            currentNoteId = null;
+        }
+
+        function showEditor() {
+            document.getElementById('empty-editor').style.display = 'none';
+            document.getElementById('editor-interface').style.display = 'flex';
+        }
+
+        function updateNoteSelector() {
+            const select = document.getElementById('noteSelect');
+            const notesList = Object.entries(notes).map(([id, note]) => ({id, note}))
+                .sort((a, b) => new Date(b.note.modified) - new Date(a.note.modified));
+            
+            select.innerHTML = '<option value="">Select a note...</option>' + 
+                notesList.map(({id, note}) => {
+                    const title = note.title || 'Untitled Note';
+                    const isSelected = id === currentNoteId;
+                    return `<option value="${id}" ${isSelected ? 'selected' : ''}>${title}</option>`;
+                }).join('');
+        }
+
+        function loadSelectedNote() {
+            const select = document.getElementById('noteSelect');
+            const noteId = select.value;
+            
+            if (noteId && notes[noteId]) {
+                loadNote(noteId);
+            } else {
+                showEmptyState();
+            }
+        }
+
+        function loadNote(noteId) {
+            if (!notes[noteId]) return;
+            
+            const note = notes[noteId];
+            currentNoteId = noteId;
+            
+            document.getElementById('noteTitleInput').value = note.title || '';
+            document.getElementById('editor').innerHTML = note.content || '';
+            
+            updateNoteTags();
+            updateWordCount();
+            setSaveStatus('saved');
+            showEditor();
+            updateNoteSelector();
+            
+            // Ensure dropdown shows the correct selection
+            const select = document.getElementById('noteSelect');
+            if (select) {
+                select.value = noteId;
+            }
+            
+            // Save state when loading a different note
+            saveEditorState();
+        }
+
+        function updateNoteTags() {
+            const container = document.getElementById('noteTags');
+            if (!currentNoteId || !notes[currentNoteId]) {
+                container.innerHTML = '';
+                return;
+            }
+            
+            const noteTags = notes[currentNoteId].tags || [];
+            container.innerHTML = noteTags.map(tag => 
+                `<span class="tag-item">${tag}<button class="tag-remove" onclick="removeTag('${tag}')" title="Remove tag">×</button></span>`
+            ).join('');
+        }
+
+        function handleTagInput(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                addTag();
+            }
+        }
+
+        function addTag() {
+            const input = document.getElementById('tagInput');
+            const tag = input.value.trim();
+            
+            if (!tag || !currentNoteId) return;
+            
+            if (!notes[currentNoteId].tags) notes[currentNoteId].tags = [];
+            
+            if (!notes[currentNoteId].tags.includes(tag)) {
+                notes[currentNoteId].tags.push(tag);
+                if (!tags.includes(tag)) {
+                    tags.push(tag);
+                }
+                updateNoteTags();
+                scheduleAutoSave();
+            }
+            
+            input.value = '';
+        }
+
+        function removeTag(tag) {
+            if (!currentNoteId || !notes[currentNoteId].tags) return;
+            
+            notes[currentNoteId].tags = notes[currentNoteId].tags.filter(t => t !== tag);
+            updateNoteTags();
+            scheduleAutoSave();
+        }
+
+        function createNewNote() {
+            showInputModal('Enter note title:', '', (title) => {
+                if (!title || !title.trim()) return;
+                
+                const noteId = Date.now().toString();
+                notes[noteId] = {
+                    id: noteId,
+                    title: title.trim(),
+                    content: '',
+                    tags: [],
+                    created: new Date().toISOString(),
+                    modified: new Date().toISOString()
+                };
+                
+                loadNote(noteId);
+                scheduleAutoSave();
+            });
+        }
+
+        async function saveNote() {
+            if (currentNoteId) {
+                await saveCurrentNote();
+                await saveData();
+                alert('Note saved successfully!');
+            }
+        }
+
+        function showNotesList() {
+            // Save current note before switching
+            if (currentNoteId) {
+                saveCurrentNote();
+                saveData();
+            }
+            
+            // Switch to notes list
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({ action: 'switch-tool', tool: 'notes-list' }, '*');
+            } else {
+                window.location.href = 'notes-list.html';
+            }
+        }
+
+        // Formatting functions
+        function toggleFormat(command) {
+            document.getElementById('editor').focus();
+            document.execCommand(command, false, null);
+            updateToolbarState();
+            scheduleAutoSave();
+        }
+
+        function formatHeading(tag) {
+            document.getElementById('editor').focus();
+            document.execCommand('formatBlock', false, tag);
+            updateToolbarState();
+            scheduleAutoSave();
+        }
+
+        function createLink() {
+            document.getElementById('editor').focus();
+            const url = prompt('Enter URL:', 'https://');
+            if (url && url !== 'https://') {
+                const selection = window.getSelection();
+                const selectedText = selection.toString();
+                const text = selectedText || prompt('Enter link text:');
+                if (text) {
+                    document.execCommand('insertHTML', false, `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`);
+                }
+            }
+            updateToolbarState();
+            scheduleAutoSave();
+        }
+
+        function insertImage() {
+            const url = prompt('Enter image URL:', 'https://');
+            if (url && url !== 'https://') {
+                document.getElementById('editor').focus();
+                document.execCommand('insertHTML', false, `<img src="${url}" style="max-width:100%;height:auto;border-radius:4px;margin:8px 0;" alt="Image">`);
+                scheduleAutoSave();
+            }
+        }
+
+        function toggleCodeFormat() {
+            document.getElementById('editor').focus();
+            const selection = window.getSelection();
+            if (selection.rangeCount > 0) {
+                const selectedText = selection.toString();
+                if (selectedText) {
+                    const code = `<code style="background:#f1f5f9;padding:2px 4px;border-radius:3px;font-family:Monaco,monospace;">${selectedText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code>`;
+                    document.execCommand('insertHTML', false, code);
+                }
+            }
+            updateToolbarState();
+            scheduleAutoSave();
+        }
+
+        function toggleQuoteFormat() {
+            document.getElementById('editor').focus();
+            const selection = window.getSelection();
+            if (selection.rangeCount > 0) {
+                const selectedText = selection.toString();
+                if (selectedText) {
+                    document.execCommand('insertHTML', false, `<blockquote style="border-left:4px solid #3b82f6;padding:12px 16px;margin:16px 0;font-style:italic;color:#6b7280;background:#f8fafc;">${selectedText}</blockquote>`);
+                }
+            }
+            updateToolbarState();
+            scheduleAutoSave();
+        }
+
+        function clearFormatting() {
+            const editor = document.getElementById('editor');
+            editor.focus();
+            document.execCommand('removeFormat');
+            document.execCommand('formatBlock', false, 'p');
+            updateToolbarState();
+            scheduleAutoSave();
+        }
+
+        function updateToolbarState() {
+            document.querySelectorAll('.toolbar-btn[data-format]').forEach(button => {
+                button.classList.remove('active');
+                const format = button.getAttribute('data-format');
+                
+                if (['h1', 'h2', 'h3', 'p'].includes(format)) {
+                    const blockFormat = document.queryCommandValue('formatBlock').toLowerCase();
+                    if (blockFormat === format || (format === 'p' && !blockFormat)) {
+                        button.classList.add('active');
+                    }
+                } else if (['bold', 'italic', 'underline', 'strikeThrough'].includes(format)) {
+                    if (document.queryCommandState(format)) {
+                        button.classList.add('active');
+                    }
+                } else if (['insertUnorderedList', 'insertOrderedList'].includes(format)) {
+                    if (document.queryCommandState(format)) {
+                        button.classList.add('active');
+                    }
+                }
+            });
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            const editor = document.getElementById('editor');
+            const titleInput = document.getElementById('noteTitleInput');
+            
+            editor.addEventListener('input', () => {
+                updateWordCount();
+                scheduleAutoSave();
+            });
+            
+            editor.addEventListener('keyup', updateToolbarState);
+            editor.addEventListener('mouseup', updateToolbarState);
+            
+            titleInput.addEventListener('input', scheduleAutoSave);
+            
+            // Listen for messages from parent app to load specific notes
+            window.addEventListener('message', (event) => {
+                if (event.data && event.data.action === 'load-note' && event.data.noteId) {
+                    console.log('📥 Received load-note message for:', event.data.noteId);
+                    const noteId = event.data.noteId;
+                    
+                    // Load the note if it exists
+                    if (notes[noteId]) {
+                        loadNote(noteId);
+                        console.log('✅ Loaded note from message:', notes[noteId].title);
+                    } else {
+                        console.log('📝 Note not found in editor, checking session storage...');
+                        checkForEditingNote();
+                    }
+                }
+            });
+            
+            // Listen for visibility changes (when iframe becomes visible)
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) {
+                    console.log('👁️ Editor became visible, checking for editing note...');
+                    setTimeout(() => {
+                        checkForEditingNote();
+                    }, 100);
+                }
+            });
+            
+            // Listen for window focus (another way to detect iframe activation)
+            window.addEventListener('focus', () => {
+                console.log('🔍 Editor gained focus, checking for editing note...');
+                setTimeout(() => {
+                    checkForEditingNote();
+                }, 100);
+            });
+        }
+
+        // Initialize when page loads
+        // Save editor state for persistence across tool switches
+        function saveEditorState() {
+            const editor = document.getElementById('editor');
+            const titleInput = document.getElementById('noteTitleInput');
+            
+            if (editor && currentNoteId) {
+                const state = {
+                    noteId: currentNoteId,
+                    content: editor.innerHTML,
+                    title: titleInput ? titleInput.value : '',
+                    scrollPosition: editor.scrollTop,
+                    timestamp: Date.now()
+                };
+                sessionStorage.setItem('note-editor-state', JSON.stringify(state));
+            }
+        }
+
+        // Restore editor state when returning to note editor
+        function restoreEditorState() {
+            // Don't restore if we're loading a specific note from notes list
+            const editingNoteId = sessionStorage.getItem('editingNoteId');
+            if (editingNoteId) {
+                return; // Let loadData() handle the specific note loading
+            }
+            
+            try {
+                const savedState = sessionStorage.getItem('note-editor-state');
+                if (savedState) {
+                    const state = JSON.parse(savedState);
+                    
+                    // Check if state is recent (within last hour)
+                    const now = Date.now();
+                    const stateAge = now - (state.timestamp || 0);
+                    const oneHour = 60 * 60 * 1000;
+                    
+                    if (stateAge < oneHour && state.noteId && notes[state.noteId]) {
+                        // Load the note and restore content
+                        loadNote(state.noteId);
+                        
+                        // Restore content and scroll position after a short delay
+                        setTimeout(() => {
+                            const editor = document.getElementById('editor');
+                            const titleInput = document.getElementById('noteTitleInput');
+                            
+                            if (editor && state.content !== editor.innerHTML) {
+                                editor.innerHTML = state.content;
+                            }
+                            if (titleInput && state.title !== titleInput.value) {
+                                titleInput.value = state.title;
+                            }
+                            if (editor && state.scrollPosition) {
+                                editor.scrollTop = state.scrollPosition;
+                            }
+                        }, 100);
+                    }
+                }
+            } catch (error) {
+                console.log('Could not restore editor state:', error);
+            }
+        }
+
+        async function init() {
+            await initStorage();
+            setupEventListeners();
+            
+            // Check for editing note again after a short delay to handle iframe timing
+            setTimeout(() => {
+                checkForEditingNote();
+            }, 200);
+            
+            // Only restore editor state if we're not loading a specific note
+            if (!sessionStorage.getItem('editingNoteId')) {
+                restoreEditorState();
+            }
+        }
+        
+        function checkForEditingNote() {
+            const editingNoteId = sessionStorage.getItem('editingNoteId');
+            const editingNoteData = sessionStorage.getItem('editingNoteData');
+            
+            console.log('🔄 Re-checking for editing note after init:', {
+                editingNoteId,
+                hasEditingData: !!editingNoteData,
+                currentNoteId
+            });
+            
+            // If we have an editing note and haven't loaded it yet
+            if (editingNoteId && !currentNoteId) {
+                console.log('🎯 Found unprocessed editing note, loading now...');
+                
+                // Load backup data if needed
+                if (editingNoteData && !notes[editingNoteId]) {
+                    try {
+                        const noteData = JSON.parse(editingNoteData);
+                        notes[editingNoteId] = noteData;
+                        console.log('📦 Loaded backup note data:', noteData.title);
+                    } catch (error) {
+                        console.error('❌ Error parsing backup note data:', error);
+                    }
+                }
+                
+                if (notes[editingNoteId]) {
+                    updateNoteSelector();
+                    loadNote(editingNoteId);
+                    sessionStorage.removeItem('editingNoteId');
+                    sessionStorage.removeItem('editingNoteData');
+                    console.log('✅ Late-loaded note in editor:', notes[editingNoteId].title);
+                }
+            }
+        }
+
+        // Modal functions
+        function showInputModal(title, message, onConfirm, defaultValue = '') {
+            // Create modal if it doesn't exist
+            if (!document.getElementById('modalOverlay')) {
+                const modalHTML = `
+                    <div id="modalOverlay" class="modal-overlay" style="display: none;">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h3 id="modalTitle">Modal Title</h3>
+                            </div>
+                            <div class="modal-body">
+                                <p id="modalMessage">Modal message</p>
+                                <input type="text" id="modalInput" class="modal-input" style="display: none;" placeholder="Enter text...">
+                            </div>
+                            <div class="modal-footer">
+                                <button id="modalCancel" class="btn btn-secondary">Cancel</button>
+                                <button id="modalConfirm" class="btn btn-primary">OK</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.insertAdjacentHTML('beforeend', modalHTML);
+                
+                // Add modal styles
+                if (!document.getElementById('modalStyles')) {
+                    const modalStyles = `
+                        <style id="modalStyles">
+                            .modal-overlay {
+                                position: fixed;
+                                top: 0;
+                                left: 0;
+                                right: 0;
+                                bottom: 0;
+                                background: rgba(0, 0, 0, 0.5);
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                z-index: 1000;
+                            }
+                            .modal-content {
+                                background: white;
+                                border-radius: 8px;
+                                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+                                min-width: 300px;
+                                max-width: 500px;
+                                margin: 20px;
+                            }
+                            .modal-header {
+                                padding: 16px 20px;
+                                border-bottom: 1px solid #e2e8f0;
+                            }
+                            .modal-header h3 {
+                                margin: 0;
+                                font-size: 1.1rem;
+                                color: #1e293b;
+                            }
+                            .modal-body {
+                                padding: 20px;
+                            }
+                            .modal-body p {
+                                margin: 0 0 16px 0;
+                                color: #64748b;
+                                line-height: 1.5;
+                            }
+                            .modal-input {
+                                width: 100%;
+                                padding: 8px 12px;
+                                border: 1px solid #d1d5db;
+                                border-radius: 6px;
+                                font-size: 14px;
+                                outline: none;
+                            }
+                            .modal-input:focus {
+                                border-color: #3b82f6;
+                                box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+                            }
+                            .modal-footer {
+                                padding: 16px 20px;
+                                border-top: 1px solid #e2e8f0;
+                                display: flex;
+                                gap: 8px;
+                                justify-content: flex-end;
+                            }
+                        </style>
+                    `;
+                    document.head.insertAdjacentHTML('beforeend', modalStyles);
+                }
+            }
+            
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalMessage').textContent = message;
+            document.getElementById('modalInput').style.display = 'block';
+            document.getElementById('modalInput').value = defaultValue;
+            document.getElementById('modalOverlay').style.display = 'flex';
+            
+            // Focus the input
+            setTimeout(() => document.getElementById('modalInput').focus(), 100);
+            
+            // Handle confirm
+            const handleConfirm = () => {
+                const value = document.getElementById('modalInput').value;
+                hideModal();
+                onConfirm(value);
+            };
+            
+            // Handle cancel
+            const handleCancel = () => {
+                hideModal();
+            };
+            
+            // Set up event listeners
+            document.getElementById('modalConfirm').onclick = handleConfirm;
+            document.getElementById('modalCancel').onclick = handleCancel;
+            
+            // Handle Enter key
+            document.getElementById('modalInput').onkeypress = (e) => {
+                if (e.key === 'Enter') handleConfirm();
+                if (e.key === 'Escape') handleCancel();
+            };
+        }
+        
+        function hideModal() {
+            const overlay = document.getElementById('modalOverlay');
+            if (overlay) {
+                overlay.style.display = 'none';
+                // Clean up event listeners
+                document.getElementById('modalConfirm').onclick = null;
+                document.getElementById('modalCancel').onclick = null;
+                const input = document.getElementById('modalInput');
+                if (input) input.onkeypress = null;
+            }
+        }
+
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

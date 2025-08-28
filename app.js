@@ -1,928 +1,550 @@
-// PWA Template - Main Application Logic
+// Productivity Suite Hub - Main Application Logic
 
-// DOM elements
-const installBtn = document.getElementById('install-btn');
-const statusDiv = document.getElementById('status');
-
-// PWA install prompt
-let deferredPrompt;
-
-// Initialize app when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    // Register service worker
-    registerServiceWorker();
-    
-    // Setup event listeners
-    setupEventListeners();
-    
-    // Update status
-    updateStatus('App loaded successfully!', 'success');
-});
-
-// Register Service Worker
-async function registerServiceWorker() {
-    if ('serviceWorker' in navigator) {
-        try {
-            // Check if we're on localhost or HTTPS
-            const isSecureContext = location.protocol === 'https:' || 
-                                   location.hostname === 'localhost' || 
-                                   location.hostname === '127.0.0.1';
-            
-            if (!isSecureContext) {
-                console.warn('Service Worker requires HTTPS or localhost');
-                updateStatus('⚠️ Service Worker requires HTTPS or localhost to work', 'info');
-                return;
-            }
-            
-            const registration = await navigator.serviceWorker.register('./service-worker.js');
-            console.log('Service Worker registered successfully:', registration);
-            updateStatus('✅ Service Worker registered successfully!', 'success');
-            
-            // Listen for service worker updates
-            registration.addEventListener('updatefound', () => {
-                console.log('Service Worker update found');
-                const newWorker = registration.installing;
-                
-                newWorker.addEventListener('statechange', () => {
-                    if (newWorker.state === 'installed') {
-                        if (navigator.serviceWorker.controller) {
-                            // New update available
-                            updateStatus('App update available! Refresh to update.', 'info');
-                        }
-                    }
-                });
-            });
-            
-        } catch (error) {
-            console.error('Service Worker registration failed:', error);
-            updateStatus(`❌ Service Worker failed: ${error.message}`, 'error');
-            
-            // Provide helpful debugging info
-            if (error.message.includes('scope')) {
-                updateStatus('Try serving from a local web server instead of file://', 'info');
-            }
-        }
-    } else {
-        console.log('Service Worker not supported');
-        updateStatus('Service Worker not supported in this browser', 'info');
-    }
-}
-
-// Setup Event Listeners
-function setupEventListeners() {
-    // Install button
-    installBtn.addEventListener('click', handleInstallClick);
-    
-    // PWA install prompt events
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    window.addEventListener('appinstalled', handleAppInstalled);
-    
-    // Online/Offline status
-    window.addEventListener('online', handleOnlineStatus);
-    window.addEventListener('offline', handleOfflineStatus);
-    
-    // Check initial online status
-    updateOnlineStatus();
-}
-
-
-
-// Handle install button click
-async function handleInstallClick() {
-    if (!deferredPrompt) {
-        updateStatus('Install prompt not available', 'info');
-        return;
-    }
-    
-    // Show the install prompt
-    deferredPrompt.prompt();
-    
-    // Wait for the user to respond to the prompt
-    const { outcome } = await deferredPrompt.userChoice;
-    
-    if (outcome === 'accepted') {
-        updateStatus('App installation started!', 'success');
-    } else {
-        updateStatus('App installation dismissed', 'info');
-    }
-    
-    // Clear the deferred prompt
-    deferredPrompt = null;
-    installBtn.style.display = 'none';
-}
-
-// Handle before install prompt
-function handleBeforeInstallPrompt(event) {
-    console.log('PWA: Before install prompt triggered');
-    
-    // Prevent the mini-infobar from appearing on mobile
-    event.preventDefault();
-    
-    // Save the event so it can be triggered later
-    deferredPrompt = event;
-    
-    // Show the install button
-    installBtn.style.display = 'block';
-    
-    updateStatus('App can be installed! Click the install button.', 'info');
-}
-
-// Handle app installed
-function handleAppInstalled(event) {
-    console.log('PWA: App was installed', event);
-    updateStatus('App installed successfully! 🎉', 'success');
-    
-    // Hide the install button
-    installBtn.style.display = 'none';
-    deferredPrompt = null;
-}
-
-// Handle online status
-function handleOnlineStatus() {
-    console.log('PWA: Back online');
-    updateStatus('Back online! ✅', 'success');
-    updateOnlineStatus();
-}
-
-// Handle offline status
-function handleOfflineStatus() {
-    console.log('PWA: Gone offline');
-    updateStatus('You are offline. App will work with cached content. 📡', 'info');
-    updateOnlineStatus();
-}
-
-// Update online status indicator
-function updateOnlineStatus() {
-    const isOnline = navigator.onLine;
-    const statusIndicator = document.querySelector('.online-status');
-    
-    if (!statusIndicator) {
-        // Create status indicator if it doesn't exist
-        const indicator = document.createElement('div');
-        indicator.className = 'online-status';
-        indicator.style.cssText = `
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            padding: 5px 10px;
-            border-radius: 15px;
-            font-size: 0.8rem;
-            font-weight: bold;
-            z-index: 1000;
-            transition: all 0.3s ease;
-        `;
-        document.body.appendChild(indicator);
-    }
-    
-    const indicator = document.querySelector('.online-status');
-    
-    if (isOnline) {
-        indicator.textContent = '🟢 Online';
-        indicator.style.backgroundColor = '#d4edda';
-        indicator.style.color = '#155724';
-        indicator.style.border = '1px solid #c3e6cb';
-    } else {
-        indicator.textContent = '🔴 Offline';
-        indicator.style.backgroundColor = '#f8d7da';
-        indicator.style.color = '#721c24';
-        indicator.style.border = '1px solid #f5c6cb';
-    }
-}
-
-// Update status message
-function updateStatus(message, type = 'info') {
-    statusDiv.textContent = message;
-    statusDiv.className = `status ${type}`;
-    
-    // Auto-clear success messages after 5 seconds
-    if (type === 'success') {
-        setTimeout(() => {
-            statusDiv.textContent = '';
-            statusDiv.className = 'status';
-        }, 5000);
-    }
-}
-
-// Utility functions for PWA features
-const PWAUtils = {
-    // Check if app is installed
-    isInstalled() {
-        return window.matchMedia('(display-mode: standalone)').matches ||
-               window.navigator.standalone === true;
-    },
-    
-    // Check if app is running in PWA mode
-    isPWAMode() {
-        return this.isInstalled();
-    },
-    
-    // Get device info
-    getDeviceInfo() {
-        const userAgent = navigator.userAgent;
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
-        const isIOS = /iPad|iPhone|iPod/.test(userAgent);
-        const isAndroid = /Android/.test(userAgent);
+class ProductivitySuite {
+    constructor() {
+        this.currentTool = 'notes-list';
+        this.isMobile = window.innerWidth <= 768;
+        this.storage = null;
+        this.deferredPrompt = null;
+        this.needsNotesRefresh = false;
         
-        return {
-            isMobile,
-            isIOS,
-            isAndroid,
-            isDesktop: !isMobile,
-            userAgent
-        };
-    },
-    
-    // Share API (if supported)
-    async share(data) {
-        if (navigator.share) {
-            try {
-                await navigator.share(data);
-                console.log('Content shared successfully');
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => this.init());
+    } else {
+            this.init();
+        }
+    }
+
+    async init() {
+        try {
+            await this.initStorage();
+            this.initPWA();
+            this.setupEventListeners();
+            
+            // Preload critical tools first
+            this.preloadCriticalTools();
+            
+            // Then switch to the default tool
+            this.switchTool(this.currentTool);
+            this.updateStorageStatus();
+            this.updateStatus('Productivity Suite loaded successfully!', 'success');
+        } catch (error) {
+            console.error('Failed to initialize app:', error);
+            this.updateStatus('Failed to initialize app: ' + error.message, 'error');
+        }
+    }
+
+    async initStorage() {
+        try {
+            if (typeof EncryptedStorage !== 'undefined') {
+                this.storage = new EncryptedStorage();
+                console.log('Encrypted storage initialized');
+            } else {
+                this.storage = {
+                    async saveEncrypted(key, data) {
+                        localStorage.setItem(key, JSON.stringify(data));
                 return true;
-            } catch (error) {
-                console.error('Error sharing content:', error);
-                return false;
-            }
-        } else {
-            console.log('Web Share API not supported');
-            return false;
-        }
-    },
-    
-    // Notification API (if supported)
-    async requestNotificationPermission() {
-        if ('Notification' in window) {
-            const permission = await Notification.requestPermission();
-            return permission === 'granted';
-        }
-        return false;
-    },
-    
-    // Show notification
-    showNotification(title, options = {}) {
-        if ('Notification' in window && Notification.permission === 'granted') {
-            const notification = new Notification(title, {
-                icon: '/icons/icon-192x192.png',
-                badge: '/icons/icon-192x192.png',
-                ...options
-            });
-            
-            notification.onclick = () => {
-                window.focus();
-                notification.close();
-            };
-            
-            return notification;
-        }
-        return null;
-    }
-};
-
-// Cross-platform storage utilities (97%+ browser compatibility)
-const PWAStorageUtils = {
-    // Feature detection for localStorage
-    isStorageAvailable() {
-        try {
-            const test = '__storage_test__';
-            localStorage.setItem(test, test);
-            localStorage.removeItem(test);
-            return true;
-        } catch (e) {
-            return false;
-        }
-    },
-    
-    // Save app state with fallbacks
-    saveAppState(state) {
-        try {
-            if (this.isStorageAvailable()) {
-                localStorage.setItem('pwa-app-state', JSON.stringify(state));
-                console.log('App state saved to localStorage');
-            } else {
-                // Fallback to session storage or memory
-                sessionStorage.setItem('pwa-app-state', JSON.stringify(state));
-                console.log('App state saved to sessionStorage (fallback)');
-            }
-        } catch (error) {
-            console.error('Failed to save app state:', error);
-            // Ultimate fallback - store in memory
-            window._pwaAppState = state;
-        }
-    },
-    
-    // Load app state with fallbacks
-    loadAppState() {
-        try {
-            if (this.isStorageAvailable()) {
-                const state = localStorage.getItem('pwa-app-state');
-                return state ? JSON.parse(state) : null;
-            } else {
-                // Try sessionStorage fallback
-                const state = sessionStorage.getItem('pwa-app-state');
-                return state ? JSON.parse(state) : null;
-            }
-        } catch (error) {
-            console.error('Failed to load app state:', error);
-            // Try memory fallback
-            return window._pwaAppState || null;
-        }
-    },
-    
-    // Save user preferences
-    savePreferences(prefs) {
-        try {
-            localStorage.setItem('pwa-preferences', JSON.stringify(prefs));
-            updateStatus('Preferences saved!', 'success');
-        } catch (error) {
-            console.error('Failed to save preferences:', error);
-            updateStatus('Failed to save preferences', 'error');
-        }
-    },
-    
-    // Load user preferences
-    loadPreferences() {
-        try {
-            const prefs = localStorage.getItem('pwa-preferences');
-            return prefs ? JSON.parse(prefs) : {
-                theme: 'auto',
-                notifications: true,
-                clickCount: 0
-            };
-        } catch (error) {
-            console.error('Failed to load preferences:', error);
-            return { theme: 'auto', notifications: true, clickCount: 0 };
-        }
-    }
-};
-
-// Load saved preferences on app start
-let userPreferences = PWAStorageUtils.loadPreferences();
-
-// Initialize storage demo
-let demoStorage = null;
-
-// Wait for both DOM and encrypted-storage.js to be ready
-function waitForDependencies() {
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', waitForDependencies);
-        return;
-    }
-    
-    // Check if EncryptedStorage is available
-    if (typeof window.EncryptedStorage === 'undefined') {
-        setTimeout(waitForDependencies, 100);
-        return;
-    }
-    
-    initStorageDemo();
-}
-
-// Initialize storage demo
-waitForDependencies();
-
-// Backup initialization on window load
-window.addEventListener('load', function() {
-    if (!demoStorage && typeof window.EncryptedStorage !== 'undefined') {
-        setTimeout(initStorageDemo, 500);
-    }
-});
-
-
-
-// Make utilities available globally
-window.PWAUtils = PWAUtils;
-window.PWAStorageUtils = PWAStorageUtils;
-
-
-
-
-
-// === STORAGE DEMO FUNCTIONALITY ===
-
-function initStorageDemo() {
-    // Initialize encrypted storage
-    if (window.EncryptedStorage) {
-        try {
-            demoStorage = new EncryptedStorage();
-        } catch (error) {
-            showDemoOutput('Failed to initialize encrypted storage', true);
-        }
-    } else {
-        showDemoOutput('EncryptedStorage class not available', true);
-        return;
-    }
-    
-    // Get demo elements
-    const saveBtn = document.getElementById('save-data-btn');
-    const loadBtn = document.getElementById('load-data-btn');
-    const exportBtn = document.getElementById('export-data-btn');
-    const importBtn = document.getElementById('import-data-btn');
-    const inspectBtn = document.getElementById('inspect-storage-btn');
-    const clearBtn = document.getElementById('clear-data-btn');
-    const demoOutput = document.getElementById('demo-output');
-    
-    // Check if all required elements exist
-    const missingElements = [];
-    if (!saveBtn) missingElements.push('save-data-btn');
-    if (!loadBtn) missingElements.push('load-data-btn');
-    if (!exportBtn) missingElements.push('export-data-btn');
-    if (!importBtn) missingElements.push('import-data-btn');
-    if (!inspectBtn) missingElements.push('inspect-storage-btn');
-    if (!clearBtn) missingElements.push('clear-data-btn');
-    if (!demoOutput) missingElements.push('demo-output');
-    
-    if (missingElements.length > 0) {
-        console.error('Missing demo elements:', missingElements);
-        if (demoOutput) {
-            showDemoOutput(`Missing UI elements: ${missingElements.join(', ')}`, true);
-        } else {
-            updateStatus('Storage demo UI elements not found', 'error');
-        }
-        return;
-    }
-    
-    // Add event listeners
-    try {
-        saveBtn.addEventListener('click', handleSaveData);
-        loadBtn.addEventListener('click', handleLoadData);
-        exportBtn.addEventListener('click', handleExportData);
-        importBtn.addEventListener('click', handleImportData);
-        inspectBtn.addEventListener('click', handleInspectStorage);
-        clearBtn.addEventListener('click', handleClearData);
-        
-    } catch (error) {
-        console.error('Error adding event listeners:', error);
-        showDemoOutput('Failed to add button event listeners', true);
-        return;
-    }
-    
-    showDemoOutput('Storage demo ready! Enter data above and click Save Data to test.', false);
-}
-
-
-
-function showDemoOutput(message, isError = false) {
-    const output = document.getElementById('demo-output');
-    const timestamp = new Date().toLocaleTimeString();
-    const prefix = isError ? '❌ ERROR' : '✅ SUCCESS';
-    const formattedMessage = `[${timestamp}] ${prefix}: ${message}`;
-    
-    if (output) {
-        output.textContent = formattedMessage;
-    } else {
-        // Fallback to console if demo output element not found
-        console.log('Demo Output:', formattedMessage);
-    }
-    
-    // Also show in main status
-    updateStatus(message, isError ? 'error' : 'success');
-}
-
-async function handleSaveData() {
-    const keyInput = document.getElementById('demo-key');
-    const dataInput = document.getElementById('demo-data');
-    const passwordInput = document.getElementById('demo-password');
-    
-    if (!keyInput || !dataInput || !demoStorage) {
-        showDemoOutput('Demo not properly initialized', true);
-        return;
-    }
-    
-    const key = keyInput.value.trim();
-    const data = dataInput.value.trim();
-    const password = passwordInput.value || null;
-    
-    if (!key || !data) {
-        showDemoOutput('Please enter both a key and data to save', true);
-        return;
-    }
-    
-    try {
-        // Try to parse as JSON, fallback to string
-        let parsedData;
-        try {
-            parsedData = JSON.parse(data);
-        } catch (e) {
-            parsedData = data;
-        }
-        
-        const success = await demoStorage.saveEncrypted(key, parsedData, password);
-        
-        if (success) {
-            const encType = password ? 'password-encrypted' : 'auto-encrypted';
-            showDemoOutput(`Data saved as '${key}' (${encType})`);
-        } else {
-            showDemoOutput('Failed to save data', true);
-        }
-    } catch (error) {
-        showDemoOutput(`Save failed: ${error.message}`, true);
-    }
-}
-
-async function handleLoadData() {
-    const keyInput = document.getElementById('demo-key');
-    const dataInput = document.getElementById('demo-data');
-    const passwordInput = document.getElementById('demo-password');
-    
-    if (!keyInput || !dataInput || !demoStorage) {
-        showDemoOutput('Demo not properly initialized', true);
-        return;
-    }
-    
-    const key = keyInput.value.trim();
-    const password = passwordInput.value || null;
-    
-    if (!key) {
-        showDemoOutput('Please enter a key to load', true);
-        return;
-    }
-    
-    try {
-        const data = await demoStorage.loadEncrypted(key, password);
-        
-        if (data !== null) {
-            const dataStr = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
-            dataInput.value = dataStr;
-            showDemoOutput(`Data loaded from '${key}'`);
-        } else {
-            showDemoOutput(`No data found for key '${key}' or wrong password`, true);
-        }
-    } catch (error) {
-        showDemoOutput(`Load failed: ${error.message}`, true);
-    }
-}
-
-async function handleExportData() {
-    if (!demoStorage) {
-        showDemoOutput('Demo not properly initialized', true);
-        return;
-    }
-    
-    try {
-        const allData = {};
-        const encryptionInfo = {};
-        
-        // Get all stored keys (localStorage example) - export in encrypted form
-        if (demoStorage.features.localStorage) {
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key && !key.startsWith('pwa-')) { // Skip internal app data
-                    const rawValue = localStorage.getItem(key);
-                    if (rawValue) {
-                        // Check if it appears to be encrypted data (base64-like)
-                        const isEncrypted = rawValue.length > 50 && /^[A-Za-z0-9+/=]+$/.test(rawValue);
-                        
-                        allData[key] = rawValue; // Export the raw (potentially encrypted) value
-                        encryptionInfo[key] = {
-                            encrypted: isEncrypted,
-                            size: rawValue.length,
-                            type: isEncrypted ? 'encrypted' : 'plaintext'
-                        };
+                    },
+                    async loadEncrypted(key) {
+                        const data = localStorage.getItem(key);
+                        return data ? JSON.parse(data) : null;
+                    },
+                    async clearAll() {
+                        localStorage.clear();
+                        return true;
                     }
+                };
+                console.log('Fallback storage initialized');
+            }
+        } catch (error) {
+            console.error('Storage initialization failed:', error);
+            throw error;
+        }
+    }
+
+    initPWA() {
+        this.registerServiceWorker();
+        this.setupPWAInstallPrompt();
+        this.setupOnlineOfflineHandlers();
+    }
+
+    setupEventListeners() {
+        // Navigation event listeners
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                const tool = e.currentTarget.dataset.tool;
+                this.switchTool(tool);
+            });
+        });
+
+        // Window resize handler for mobile detection
+        window.addEventListener('resize', () => {
+            this.isMobile = window.innerWidth <= 768;
+        });
+
+        // Listen for messages from iframes (settings tool install button, tool switching)
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.action === 'install-app') {
+                this.installApp();
+            } else if (event.data && event.data.action === 'switch-tool') {
+                this.switchTool(event.data.tool);
+                
+                // If switching to note-editor with a specific note, forward the message
+                if (event.data.tool === 'note-editor' && event.data.editNoteId) {
+                    setTimeout(() => {
+                        const editorIframe = document.getElementById('iframe-note-editor');
+                        if (editorIframe && editorIframe.contentWindow) {
+                            console.log('📤 Forwarding edit note message to editor:', event.data.editNoteId);
+                            editorIframe.contentWindow.postMessage({
+                                action: 'load-note',
+                                noteId: event.data.editNoteId
+                            }, '*');
+                        }
+                    }, 100); // Small delay to ensure iframe is visible
+                }
+                
+                // If switching to notes-list, trigger refresh
+                if (event.data.tool === 'notes-list') {
+                    this.needsNotesRefresh = true;
+                    setTimeout(() => {
+                        if (this.needsNotesRefresh) {
+                            const notesIframe = document.getElementById('iframe-notes-list');
+                            if (notesIframe && notesIframe.contentWindow) {
+                                console.log('🔄 Triggering notes list refresh');
+                                notesIframe.contentWindow.postMessage({
+                                    action: 'refresh-notes'
+                                }, '*');
+                                this.needsNotesRefresh = false;
+                            }
+                        }
+                    }, 100);
+                }
+            } else if (event.data && event.data.action === 'note-modified') {
+                // Mark that notes list needs refresh next time it's shown
+                console.log('📝 Note modified, marking for refresh:', event.data.noteId);
+                this.needsNotesRefresh = true;
+            }
+            // Global timer modal removed - using standard notifications now
+        });
+    }
+
+    switchTool(toolName) {
+        if (!toolName) return;
+        
+        this.currentTool = toolName;
+        
+        // Update navigation active state
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.classList.remove('active');
+            if (item.dataset.tool === toolName) {
+                item.classList.add('active');
+            }
+        });
+
+        // Load tool in iframe
+        this.loadToolInIframe(toolName);
+        
+        // If switching to notes-list and it needs refresh, trigger it
+        if (toolName === 'notes-list' && this.needsNotesRefresh) {
+            setTimeout(() => {
+                const notesIframe = document.getElementById('iframe-notes-list');
+                if (notesIframe && notesIframe.contentWindow) {
+                    console.log('🔄 Auto-refreshing notes list on switch');
+                    notesIframe.contentWindow.postMessage({
+                        action: 'refresh-notes'
+                    }, '*');
+                    this.needsNotesRefresh = false;
+                }
+            }, 200); // Slightly longer delay for direct switches
+        }
+        
+        this.updateStatus(`Loaded ${toolName} tool`, 'success');
+    }
+
+    loadToolInIframe(toolName) {
+        const mainContent = document.getElementById('app-main');
+        if (!mainContent) return;
+
+        // Map tool names to HTML files
+        const toolFiles = {
+            'notes-list': 'notes-list.html',
+            'note-editor': 'note-editor.html',
+            'pomodoro': 'pomodoro.html',
+            'checklist': 'checklist.html',
+            'eisenhower': 'eisenhower.html',
+            'settings': 'settings.html'
+        };
+
+        const filename = toolFiles[toolName];
+        if (!filename) {
+            console.error(`Unknown tool: ${toolName}`);
+            return;
+        }
+        
+        // Always ensure critical tools (notes-list and note-editor) are preloaded
+        this.preloadCriticalTools();
+        
+        // Check if iframe already exists
+        const existingIframe = document.getElementById(`iframe-${toolName}`);
+        
+        if (existingIframe) {
+            // Hide all iframes and show the requested one
+            this.hideAllIframes();
+            existingIframe.style.display = 'block';
+            console.log(`Showing existing iframe for ${toolName}`);
+        } else {
+            // Create new iframe
+            const iframe = document.createElement('iframe');
+            iframe.id = `iframe-${toolName}`;
+            iframe.src = filename;
+            iframe.title = `${toolName} tool`;
+            iframe.style.cssText = 'width: 100%; height: calc(100vh - 76px); border: none; display: block;';
+            iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups');
+            
+            // Hide all existing iframes and add the new one
+            this.hideAllIframes();
+            mainContent.appendChild(iframe);
+            console.log(`Created new iframe for ${toolName}`);
+        }
+    }
+
+    preloadCriticalTools() {
+        const mainContent = document.getElementById('app-main');
+        if (!mainContent) return;
+
+        const criticalTools = ['notes-list', 'note-editor'];
+        
+        criticalTools.forEach(toolName => {
+            const existingIframe = document.getElementById(`iframe-${toolName}`);
+            if (!existingIframe) {
+                console.log(`Preloading critical tool: ${toolName}`);
+                
+                const toolFiles = {
+                    'notes-list': 'notes-list.html',
+                    'note-editor': 'note-editor.html'
+                };
+                
+                const iframe = document.createElement('iframe');
+                iframe.id = `iframe-${toolName}`;
+                iframe.src = toolFiles[toolName];
+                iframe.title = `${toolName} tool`;
+                iframe.style.cssText = 'width: 100%; height: calc(100vh - 76px); border: none; display: none;';
+                iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-downloads allow-modals allow-popups');
+                
+                mainContent.appendChild(iframe);
+            }
+        });
+    }
+
+    hideAllIframes() {
+        const mainContent = document.getElementById('app-main');
+        const iframes = mainContent.querySelectorAll('iframe');
+        iframes.forEach(iframe => {
+            iframe.style.display = 'none';
+        });
+    }
+
+    updateStorageStatus() {
+        const statusElements = document.querySelectorAll('#storage-status');
+        statusElements.forEach(element => {
+            if (element) {
+                element.textContent = 'Auto-saving enabled';
+            }
+        });
+    }
+
+    updateStatus(message, type = 'info') {
+        const statusElement = document.getElementById('status');
+        if (statusElement) {
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`;
+            
+            // Auto-hide after 3 seconds
+            setTimeout(() => {
+                statusElement.textContent = '';
+                statusElement.className = 'status';
+            }, 3000);
+        }
+    }
+
+    // PWA Functions
+    async registerServiceWorker() {
+        if ('serviceWorker' in navigator) {
+            try {
+                const registration = await navigator.serviceWorker.register('./service-worker.js');
+                console.log('Service Worker registered:', registration);
+                this.updateStatus('App ready for offline use', 'success');
+            } catch (error) {
+                console.error('Service Worker registration failed:', error);
+                this.updateStatus('Offline features unavailable', 'warning');
+            }
+        }
+    }
+
+    setupPWAInstallPrompt() {
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            this.deferredPrompt = e;
+            
+            const installBtns = document.querySelectorAll('#install-btn');
+            installBtns.forEach(btn => {
+                if (btn) {
+                    btn.style.display = 'inline-flex';
+                    btn.textContent = '📱 Install App';
+                }
+            });
+        });
+
+        window.addEventListener('appinstalled', () => {
+            this.deferredPrompt = null;
+            this.updateStatus('App installed successfully!', 'success');
+            
+            const installBtns = document.querySelectorAll('#install-btn');
+            installBtns.forEach(btn => {
+                if (btn) btn.style.display = 'none';
+            });
+        });
+    }
+
+    async installApp() {
+        if (!this.deferredPrompt) {
+            this.updateStatus('App installation not available', 'warning');
+        return;
+    }
+    
+    try {
+            this.deferredPrompt.prompt();
+            const result = await this.deferredPrompt.userChoice;
+            
+            if (result.outcome === 'accepted') {
+                this.updateStatus('App installation started...', 'info');
+        } else {
+                this.updateStatus('App installation cancelled', 'warning');
+        }
+            
+            this.deferredPrompt = null;
+    } catch (error) {
+            console.error('Installation failed:', error);
+            this.updateStatus('Installation failed: ' + error.message, 'error');
+        }
+    }
+
+    setupOnlineOfflineHandlers() {
+        window.addEventListener('online', () => {
+            this.updateStatus('Back online!', 'success');
+        });
+
+        window.addEventListener('offline', () => {
+            this.updateStatus('Working offline', 'warning');
+        });
+    }
+
+    // Global data management functions (for settings tool)
+    async exportAllData() {
+        try {
+            const allData = {
+                version: '1.0',
+                timestamp: new Date().toISOString(),
+                app: 'Productivity Suite',
+                tools: {}
+            };
+
+            // Export data from all tools
+            const toolKeys = [
+                { key: 'notebook-data', name: 'notes' },
+                { key: 'pomodoro-data', name: 'pomodoro' },
+                { key: 'checklist-data', name: 'checklist' },
+                { key: 'eisenhower-data', name: 'eisenhower' }
+            ];
+
+            for (const {key, name} of toolKeys) {
+                try {
+                    const data = await this.storage.loadEncrypted(key);
+                    if (data) {
+                        allData.tools[name] = data;
+                    }
+                } catch (error) {
+                    console.error(`Error exporting ${name}:`, error);
                 }
             }
-        }
-        
-        // Create and download export file with encryption metadata
-        const exportData = {
-            timestamp: new Date().toISOString(),
-            appName: 'PWA Template',
-            exportType: 'encrypted',
-            encryptionMethod: demoStorage.encryptionMethod,
-            storageMethod: demoStorage.features.localStorage ? 'localStorage' : 'fallback',
-            encryptionInfo: encryptionInfo,
-            data: allData,
-            importInstructions: 'To import this data, use the PWA storage demo and manually restore each key-value pair. Encrypted data will require the original password for decryption.'
-        };
-        
-        const blob = new Blob([JSON.stringify(exportData, null, 2)], { 
+
+            // Create and download file
+            const blob = new Blob([JSON.stringify(allData, null, 2)], { 
             type: 'application/json' 
         });
+            
         const url = URL.createObjectURL(blob);
-        
         const a = document.createElement('a');
         a.href = url;
-        a.download = `pwa-export-${new Date().toISOString().split('T')[0]}.json`;
+            a.download = `productivity-suite-backup-${new Date().toISOString().split('T')[0]}.json`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         
-        const count = Object.keys(allData).length;
-        const encryptedCount = Object.values(encryptionInfo).filter(info => info.encrypted).length;
-        showDemoOutput(`Exported ${count} items (${encryptedCount} encrypted) to download file`);
+            this.updateStatus('All data exported successfully!', 'success');
     } catch (error) {
-        showDemoOutput(`Export failed: ${error.message}`, true);
+            console.error('Export failed:', error);
+            this.updateStatus('Export failed: ' + error.message, 'error');
+        }
     }
-}
 
-async function handleImportData() {
-    if (!demoStorage) {
-        showDemoOutput('Demo not properly initialized', true);
-        return;
-    }
-    
-    try {
-        // Create a file input element
+    async importAllData() {
+        try {
         const fileInput = document.createElement('input');
         fileInput.type = 'file';
         fileInput.accept = '.json';
-        fileInput.style.display = 'none';
-        
-        // Handle file selection
-        fileInput.addEventListener('change', async (event) => {
-            const file = event.target.files[0];
-            if (!file) {
-                showDemoOutput('No file selected', true);
-                return;
-            }
             
-            try {
-                // Read the file
-                const fileText = await file.text();
-                const importData = JSON.parse(fileText);
-                
-                // Validate import data structure
-                if (!importData.data || typeof importData.data !== 'object') {
-                    showDemoOutput('Invalid import file format - missing data section', true);
-                    return;
-                }
-                
-                // Show import preview and confirmation
-                const dataKeys = Object.keys(importData.data);
-                const confirmMessage = `Import ${dataKeys.length} items from "${file.name}"?\n\n` +
-                    `File Info:\n` +
-                    `• Export Date: ${importData.timestamp || 'Unknown'}\n` +
-                    `• App: ${importData.appName || 'Unknown'}\n` +
-                    `• Export Type: ${importData.exportType || 'Unknown'}\n` +
-                    `• Encryption Method: ${importData.encryptionMethod || 'Unknown'}\n\n` +
-                    `Items to import:\n${dataKeys.slice(0, 10).map(key => `• ${key}`).join('\n')}` +
-                    (dataKeys.length > 10 ? `\n... and ${dataKeys.length - 10} more` : '') +
-                    `\n\nThis will overwrite any existing data with the same keys.`;
-                
-                if (!confirm(confirmMessage)) {
-                    showDemoOutput('Import cancelled by user');
-                    return;
-                }
-                
-                // Import the data
+            fileInput.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                try {
+                    const text = await file.text();
+                    const data = JSON.parse(text);
+
+                    if (!data.tools) {
+                        throw new Error('Invalid backup file format');
+                    }
+
+                    // Import data to all tools
+                    const toolKeys = [
+                        { key: 'notebook-data', name: 'notes' },
+                        { key: 'pomodoro-data', name: 'pomodoro' },
+                        { key: 'checklist-data', name: 'checklist' },
+                        { key: 'eisenhower-data', name: 'eisenhower' }
+                    ];
+
                 let importedCount = 0;
-                let errorCount = 0;
-                const errors = [];
-                
-                for (const [key, value] of Object.entries(importData.data)) {
-                    try {
-                        // Store the raw value directly to localStorage (preserving encryption)
-                        if (demoStorage.features.localStorage) {
-                            localStorage.setItem(key, value);
+                    for (const {key, name} of toolKeys) {
+                        if (data.tools[name]) {
+                            try {
+                                await this.storage.saveEncrypted(key, data.tools[name]);
                             importedCount++;
-                        } else {
-                            // Fallback to memory storage
-                            if (!window._encryptedStorage) window._encryptedStorage = {};
-                            window._encryptedStorage[key] = value;
-                            importedCount++;
+                            } catch (error) {
+                                console.error(`Error importing ${name}:`, error);
+                            }
                         }
-                    } catch (error) {
-                        errorCount++;
-                        errors.push(`${key}: ${error.message}`);
-                        console.error(`Failed to import ${key}:`, error);
                     }
-                }
-                
-                // Show results
-                if (errorCount === 0) {
-                    showDemoOutput(`Successfully imported ${importedCount} items from "${file.name}"`);
-                } else {
-                    showDemoOutput(`Imported ${importedCount} items with ${errorCount} errors. Check console for details.`, true);
-                    console.error('Import errors:', errors);
-                }
-                
 
-                
+                    this.updateStatus(`Data imported successfully! ${importedCount} tools updated.`, 'success');
+                    
+                    // Reload current tool
+                    setTimeout(() => {
+                        this.loadToolInIframe(this.currentTool);
+                    }, 1000);
             } catch (error) {
-                if (error instanceof SyntaxError) {
-                    showDemoOutput('Invalid JSON file format', true);
-                } else {
-                    showDemoOutput(`Import failed: ${error.message}`, true);
+                    console.error('Import failed:', error);
+                    this.updateStatus('Import failed: ' + error.message, 'error');
                 }
-                console.error('Import error:', error);
-            } finally {
-                // Clean up the file input
-                document.body.removeChild(fileInput);
-            }
-        });
-        
-        // Add to DOM and trigger click
-        document.body.appendChild(fileInput);
+            };
+
         fileInput.click();
-        
     } catch (error) {
-        showDemoOutput(`Import failed: ${error.message}`, true);
-        console.error('Import error:', error);
+            console.error('Import setup failed:', error);
+            this.updateStatus('Import setup failed: ' + error.message, 'error');
     }
 }
 
-async function handleInspectStorage() {
-    if (!demoStorage) {
-        showDemoOutput('Demo not properly initialized', true);
+    async clearAllData() {
+        if (!confirm('⚠️ Are you sure you want to clear ALL data?\n\nThis will permanently delete:\n- All notebook notes\n- Pomodoro session history\n- All checklist tasks\n- Eisenhower matrix tasks\n\nThis action cannot be undone!')) {
         return;
     }
     
     try {
-        // Gather information about stored data
-        const storageInfo = {
-            totalItems: 0,
-            encryptedItems: 0,
-            totalSize: 0,
-            items: []
-        };
-        
-        // Check localStorage for data
-        if (demoStorage.features.localStorage) {
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key) {
-                    const value = localStorage.getItem(key);
-                    const size = new Blob([value]).size;
-                    
-                    storageInfo.totalItems++;
-                    storageInfo.totalSize += size;
-                    
-                    // Check if it might be encrypted (basic heuristic)
-                    const isEncrypted = value.length > 50 && /^[A-Za-z0-9+/=]+$/.test(value);
-                    if (isEncrypted) {
-                        storageInfo.encryptedItems++;
-                    }
-                    
-                    storageInfo.items.push({
-                        key: key,
-                        size: size,
-                        encrypted: isEncrypted,
-                        type: key.startsWith('pwa-') ? 'App Data' : 'User Data'
-                    });
+            // Clear data from all tools
+            const toolKeys = ['notebook-data', 'pomodoro-data', 'checklist-data', 'eisenhower-data'];
+            
+            for (const key of toolKeys) {
+                try {
+                    localStorage.removeItem(key);
+                } catch (error) {
+                    console.error(`Error clearing ${key}:`, error);
                 }
             }
+
+            // Clear any additional storage
+            if (this.storage && this.storage.clearAll) {
+                await this.storage.clearAll();
+            }
+
+            this.updateStatus('All data cleared successfully!', 'success');
+            
+            // Reload current tool after delay
+            setTimeout(() => {
+                this.loadToolInIframe(this.currentTool);
+            }, 1000);
+    } catch (error) {
+            console.error('Clear failed:', error);
+            this.updateStatus('Clear failed: ' + error.message, 'error');
         }
-        
-        // Create detailed report
-        const report = `📊 LOCAL STORAGE INSPECTION REPORT
-        
-🗂️ Storage Overview:
-• Total Items: ${storageInfo.totalItems}
-• Encrypted Items: ${storageInfo.encryptedItems}
-• Total Size: ${(storageInfo.totalSize / 1024).toFixed(2)} KB
-• Storage Method: ${demoStorage.features.localStorage ? 'localStorage' : 'Fallback'}
-• Encryption: ${demoStorage.encryptionMethod === 'webcrypto' ? 'AES-256-GCM' : 'XOR Cipher'}
+    }
 
-📂 STORED ITEMS:
-${storageInfo.items.length > 0 ? 
-    storageInfo.items.map(item => 
-        `• ${item.key} (${item.type}) - ${item.size} bytes ${item.encrypted ? '🔐' : '📄'}`
-    ).join('\n') : 
-    'No items found'
-}
+    // Global timer modal functions removed - using standard notifications now
 
-🛠️ ACCESS YOUR DATA:
-1. Press F12 to open Developer Tools
-2. Go to Application/Storage tab
-3. Click "Local Storage" → "${window.location.origin}"
-4. View all stored keys and values
+    showAbout() {
+        alert(`📝 Productivity Suite v1.0
 
-💾 PHYSICAL LOCATION (Browser-dependent):
-• Chrome/Edge: %LocalAppData%\\Google\\Chrome\\User Data\\Default\\Local Storage
-• Firefox: %AppData%\\Mozilla\\Firefox\\Profiles\\[profile]\\storage\\default
-• Note: Direct file access is restricted for security
+A unified Progressive Web App combining:
+• 📝 Rich text notebook with encryption
+• 🍅 Pomodoro timer for focus sessions  
+• ☑️ Project checklist management
+• 📊 Eisenhower priority matrix
+• ⚙️ Comprehensive settings panel
 
-⚠️ IMPORTANT: Browser storage is domain-specific and may be cleared by:
-• Manual browser data clearing
-• Incognito/Private mode (temporary)
-• Storage quota limits
-• Browser updates (rare)
+Features:
+✅ Offline storage with optional encryption
+✅ Progressive Web App capabilities
+✅ Mobile responsive design
+✅ Modular tool architecture
+✅ Export/Import functionality
+✅ Auto-save and data persistence
 
-For permanent storage, use the Export function to download your data.`;
+Built with vanilla HTML, CSS, and JavaScript for maximum compatibility and performance.`);
+    }
 
-        // Show in a modal-like dialog
-        const modalContent = `
-            <div style="
-                position: fixed; 
-                top: 0; left: 0; 
-                width: 100%; height: 100%; 
-                background: rgba(0,0,0,0.8); 
-                z-index: 10000; 
-                display: flex; 
-                align-items: center; 
-                justify-content: center;
-                padding: 20px;
-                box-sizing: border-box;
-            ">
-                <div style="
-                    background: white; 
-                    padding: 30px; 
-                    border-radius: 12px; 
-                    max-width: 800px; 
-                    max-height: 90vh; 
-                    overflow-y: auto;
-                    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-                    position: relative;
-                ">
-                    <button onclick="this.parentElement.parentElement.remove()" style="
-                        position: absolute; 
-                        top: 15px; 
-                        right: 20px; 
-                        background: #dc3545; 
-                        color: white; 
-                        border: none; 
-                        border-radius: 50%; 
-                        width: 30px; 
-                        height: 30px; 
-                        cursor: pointer;
-                        font-size: 18px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                    ">×</button>
-                    <pre style="
-                        white-space: pre-wrap; 
-                        font-family: 'Courier New', monospace; 
-                        font-size: 14px; 
-                        line-height: 1.5;
-                        margin: 0;
-                        color: #333;
-                    ">${report}</pre>
-                    <div style="margin-top: 20px; text-align: center;">
-                        <button onclick="navigator.clipboard.writeText(\`${report.replace(/`/g, '\\`')}\`).then(() => alert('Report copied to clipboard!'))" style="
-                            background: #007bff; 
-                            color: white; 
-                            border: none; 
-                            padding: 10px 20px; 
-                            border-radius: 6px; 
-                            cursor: pointer; 
-                            margin-right: 10px;
-                        ">📋 Copy Report</button>
-                        <button onclick="this.parentElement.parentElement.parentElement.remove()" style="
-                            background: #6c757d; 
-                            color: white; 
-                            border: none; 
-                            padding: 10px 20px; 
-                            border-radius: 6px; 
-                            cursor: pointer;
-                        ">Close</button>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        // Add modal to page
-        const modalDiv = document.createElement('div');
-        modalDiv.innerHTML = modalContent;
-        document.body.appendChild(modalDiv);
-        
-        showDemoOutput(`Storage inspection complete - found ${storageInfo.totalItems} items (${storageInfo.encryptedItems} encrypted)`);
-        
-    } catch (error) {
-        showDemoOutput(`Inspection failed: ${error.message}`, true);
+    showHelp() {
+        alert(`🚀 Quick Help Guide
+
+📝 NOTEBOOK:
+• Create and edit rich text notes
+• Organize with tags and search
+• Toggle encryption for privacy
+
+🍅 POMODORO TIMER:
+• 25-minute focus sessions with breaks
+• Customize session durations
+• Track productivity statistics
+
+☑️ CHECKLIST:
+• Manage project tasks and subtasks
+• Track completion progress
+• Organize complex projects
+
+📊 EISENHOWER MATRIX:
+• Prioritize tasks by urgency/importance
+• Four quadrants: Do, Schedule, Delegate, Eliminate
+• Move tasks between priorities
+
+💾 DATA MANAGEMENT:
+• All data is stored locally on your device
+• Use Export/Import for backups
+• Optional encryption for sensitive data
+• Works completely offline
+
+📱 PWA FEATURES:
+• Install app on any device
+• Offline functionality
+• Native app-like experience`);
     }
 }
 
-async function handleClearData() {
-    if (!demoStorage) {
-        showDemoOutput('Demo not properly initialized', true);
-        return;
-    }
-    
-    const confirmed = confirm(
-        'Are you sure you want to clear ALL stored data?\n\n' +
-        'This will delete:\n' +
-        '- All encrypted data\n' +
-        '- All regular localStorage data\n' +
-        '- App preferences and settings\n\n' +
-        'This action cannot be undone!'
-    );
-    
-    if (!confirmed) {
-        showDemoOutput('Clear operation cancelled');
-        return;
-    }
-    
-    try {
-        await demoStorage.clearAll();
-        
-        // Clear form inputs
-        const keyInput = document.getElementById('demo-key');
-        const dataInput = document.getElementById('demo-data');
-        const passwordInput = document.getElementById('demo-password');
-        
-        if (keyInput) keyInput.value = 'demo-data';
-        if (dataInput) dataInput.value = '{"message": "Hello PWA!"}';
-        if (passwordInput) passwordInput.value = '';
-        
-        showDemoOutput('All data cleared successfully');
-        
-        // Reset user preferences
-        userPreferences = { theme: 'auto', notifications: true, clickCount: 0 };
-        PWAStorageUtils.savePreferences(userPreferences);
-        
-    } catch (error) {
-        showDemoOutput(`Clear failed: ${error.message}`, true);
-    }
-}
+// Initialize the app
+let app;
+window.addEventListener('DOMContentLoaded', () => {
+    app = new ProductivitySuite();
+});
+
+// Make app globally available
+window.app = app;

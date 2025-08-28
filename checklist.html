@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Checklist Template</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 0; }
+        h1, h3 { margin-top: 0; margin-bottom: 5px; }
+        .container { max-width: 800px; margin: 0 auto; padding: 5px; }
+        .sticky-header { position: sticky; top: 0; background-color: #fff; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .section { margin-bottom: 10px; padding: 10px; border: 1px solid #eee; position: relative; }
+        .control-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .progress-bar-container { height: 12px; background-color: #f0f0f0; border: 1px solid #ccc; margin-top: 10px; border-radius: 3px; }
+        .progress-bar-fill { height: 100%; background-color: #000000; transition: width 0.3s ease-in-out; border-radius: 3px; }
+        button { padding: 8px 12px; border: 1px solid #ccc; background-color: #f9f9f9; cursor: pointer; }
+        button:hover { background-color: #e9e9e9; }
+        input[type="text"] { padding: 8px 12px; border: 1px solid #ccc; }
+        .hidden { display: none; }
+        [contenteditable]:focus { outline: 2px solid black; }
+        ul { list-style: none; padding-left: 0; }
+        li { margin-bottom: 5px; }
+        .task-item-container, .subtask-item-container { display: flex; align-items: center; flex-grow: 1; }
+        .subtask-item-container { padding-left: 20px; }
+        .subtask-list { padding-left: 0; }
+        /* Styles for buttons to look like checkboxes */
+        .checkbox-style-button {
+            all: unset;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            width: 12px; 
+            height: 12px;
+            border: 1px solid #888;
+            background-color: #fff;
+            cursor: pointer;
+            font-size: 11px;
+            line-height: 1;
+            margin-right: 3px;
+            color: #333;
+            border-radius: 3px; 
+        }
+        .checkbox-style-button:hover { background-color: #f0f0f0; }
+        .add-button-container { margin-top: 5px; }
+        .subtask-add-button { margin-left: 20px; }
+        .task-add-button { margin-left: 0; }
+    </style>
+    <script src="encrypted-storage.js"></script>
+</head>
+<body>
+    <div class="container" id="main-container">
+        <div class="section sticky-header">
+            <div class="control-bar">
+                <div style="flex:1">
+                    <div>
+                        <span id="overall-progress-text">0 / 0 tasks (0%)</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div id="overall-progress-bar" class="progress-bar-fill"></div>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:6px; margin-left:10px">
+                    <input id="projectTitleInput" type="text" value="Project Checklist" />
+                    <span id="auto-save-indicator" style="font-size: 12px; color: #666; opacity: 0; transition: opacity 0.3s;">Auto-saved</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Tasks</h3>
+            <ul id="task-list"></ul>
+            <div class="add-button-container">
+                <button class="task-add-button" onclick="addNewTask()">+ Add Task</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Completed Tasks</h3>
+            <ul id="completed-task-list"></ul>
+            <div style="margin-top: 10px;">
+                <button onclick="clearCompleted()">Clear Completed</button>
+                <button onclick="showAll()">Show All Tasks</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Statistics</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
+                <div>
+                    <strong>Total Tasks:</strong>
+                    <div id="total-tasks">0</div>
+                </div>
+                <div>
+                    <strong>Completed:</strong>
+                    <div id="completed-tasks">0</div>
+                </div>
+                <div>
+                    <strong>Remaining:</strong>
+                    <div id="remaining-tasks">0</div>
+                </div>
+                <div>
+                    <strong>Progress:</strong>
+                    <div id="progress-percentage">0%</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let checklistData = {
+            projectTitle: 'Project Checklist',
+            tasks: [],
+            settings: {
+                showCompleted: true
+            }
+        };
+
+        let storage = null;
+        let taskIdCounter = 1;
+        let lastProjectTitle = '';
+
+        // Initialize storage
+        async function initStorage() {
+            try {
+                if (typeof EncryptedStorage !== 'undefined') {
+                    storage = new EncryptedStorage();
+                } else {
+                    // Fallback storage
+                    storage = {
+                        async saveEncrypted(key, data) {
+                            localStorage.setItem(key, JSON.stringify(data));
+                            return true;
+                        },
+                        async loadEncrypted(key) {
+                            const data = localStorage.getItem(key);
+                            return data ? JSON.parse(data) : null;
+                        }
+                    };
+                }
+                await loadData();
+            } catch (error) {
+                console.error('Storage initialization failed:', error);
+            }
+        }
+
+        // Load data from storage
+        async function loadData() {
+            try {
+                const data = await storage.loadEncrypted('checklist-data');
+                if (data) {
+                    checklistData = { ...checklistData, ...data };
+                    taskIdCounter = Math.max(...checklistData.tasks.map(t => t.id), 0) + 1;
+                } else {
+                    // Create default tasks
+                    checklistData.tasks = [
+                        {
+                            id: 1,
+                            text: 'Welcome to your project checklist!',
+                            completed: false,
+                            subtasks: [
+                                { id: 101, text: 'Click this checkbox to mark as done', completed: false },
+                                { id: 102, text: 'Add your own tasks and subtasks', completed: false }
+                            ]
+                        },
+                        {
+                            id: 2,
+                            text: 'Project setup and planning',
+                            completed: false,
+                            subtasks: [
+                                { id: 201, text: 'Define project goals', completed: false },
+                                { id: 202, text: 'Create timeline', completed: false },
+                                { id: 203, text: 'Assign responsibilities', completed: false }
+                            ]
+                        }
+                    ];
+                    taskIdCounter = 300;
+                }
+                
+                // Apply loaded data
+                document.getElementById('projectTitleInput').value = checklistData.projectTitle;
+                
+                renderTasks();
+                updateProgress();
+                updateStats();
+            } catch (error) {
+                console.error('Failed to load data:', error);
+            }
+        }
+
+        // Save data to storage
+        async function saveData() {
+            try {
+                // Update project title
+                checklistData.projectTitle = document.getElementById('projectTitleInput').value;
+                
+                await storage.saveEncrypted('checklist-data', checklistData);
+                showAutoSaveIndicator();
+                
+                // Save state for tool switching
+                saveChecklistState();
+            } catch (error) {
+                console.error('Failed to save data:', error);
+            }
+        }
+
+        function showAutoSaveIndicator() {
+            const indicator = document.getElementById('auto-save-indicator');
+            indicator.style.opacity = '1';
+            setTimeout(() => {
+                indicator.style.opacity = '0';
+            }, 2000);
+        }
+
+        function addNewTask() {
+            showInputModal('Add New Task', 'Enter task description:', (text) => {
+                if (!text || !text.trim()) return;
+                
+                const newTask = {
+                    id: taskIdCounter++,
+                    text: text.trim(),
+                    completed: false,
+                    subtasks: []
+                };
+                
+                checklistData.tasks.push(newTask);
+                saveData();
+                renderTasks();
+                updateProgress();
+                updateStats();
+            });
+        }
+
+        function addSubtask(taskId) {
+            showInputModal('Add Subtask', 'Enter subtask description:', (text) => {
+                if (!text || !text.trim()) return;
+                
+                const task = checklistData.tasks.find(t => t.id === taskId);
+                if (task) {
+                    const newSubtask = {
+                        id: taskIdCounter++,
+                        text: text.trim(),
+                        completed: false
+                    };
+                    
+                    task.subtasks.push(newSubtask);
+                    saveData();
+                    renderTasks();
+                    updateProgress();
+                    updateStats();
+                }
+            });
+        }
+
+        function toggleTask(taskId) {
+            const task = checklistData.tasks.find(t => t.id === taskId);
+            if (task) {
+                task.completed = !task.completed;
+                
+                // If marking task as complete, complete all subtasks
+                if (task.completed) {
+                    task.subtasks.forEach(subtask => subtask.completed = true);
+                }
+                
+                saveData();
+                renderTasks();
+                updateProgress();
+                updateStats();
+            }
+        }
+
+        function toggleSubtask(taskId, subtaskId) {
+            const task = checklistData.tasks.find(t => t.id === taskId);
+            if (task) {
+                const subtask = task.subtasks.find(s => s.id === subtaskId);
+                if (subtask) {
+                    subtask.completed = !subtask.completed;
+                    
+                    // Update parent task status based on subtasks
+                    const allSubtasksCompleted = task.subtasks.length > 0 && task.subtasks.every(s => s.completed);
+                    task.completed = allSubtasksCompleted;
+                    
+                    saveData();
+                    renderTasks();
+                    updateProgress();
+                    updateStats();
+                }
+            }
+        }
+
+        function deleteTask(taskId) {
+            showConfirmModal('Delete Task', 'Delete this task and all its subtasks? This cannot be undone.', () => {
+                checklistData.tasks = checklistData.tasks.filter(t => t.id !== taskId);
+                saveData();
+                renderTasks();
+                updateProgress();
+                updateStats();
+            });
+        }
+
+        function deleteSubtask(taskId, subtaskId) {
+            showConfirmModal('Delete Subtask', 'Delete this subtask? This cannot be undone.', () => {
+                const task = checklistData.tasks.find(t => t.id === taskId);
+                if (task) {
+                    task.subtasks = task.subtasks.filter(s => s.id !== subtaskId);
+                    
+                    // Update parent task status
+                    const allSubtasksCompleted = task.subtasks.length > 0 && task.subtasks.every(s => s.completed);
+                    task.completed = allSubtasksCompleted;
+                    
+                    saveData();
+                    renderTasks();
+                    updateProgress();
+                    updateStats();
+                }
+            });
+        }
+
+        function editTaskText(taskId, element) {
+            const currentText = element.textContent;
+            showInputModal('Edit Task', 'Edit task description:', (newText) => {
+                if (newText !== null && newText.trim() !== '') {
+                    const task = checklistData.tasks.find(t => t.id === taskId);
+                    if (task) {
+                        task.text = newText.trim();
+                        element.textContent = newText.trim();
+                        saveData();
+                    }
+                }
+            }, currentText);
+        }
+
+        function editSubtaskText(taskId, subtaskId, element) {
+            const currentText = element.textContent;
+            showInputModal('Edit Subtask', 'Edit subtask description:', (newText) => {
+                if (newText !== null && newText.trim() !== '') {
+                    const task = checklistData.tasks.find(t => t.id === taskId);
+                    if (task) {
+                        const subtask = task.subtasks.find(s => s.id === subtaskId);
+                        if (subtask) {
+                            subtask.text = newText.trim();
+                            element.textContent = newText.trim();
+                            saveData();
+                        }
+                    }
+                }
+            }, currentText);
+        }
+
+        function renderTasks() {
+            const activeTasks = checklistData.tasks.filter(task => !task.completed);
+            const completedTasks = checklistData.tasks.filter(task => task.completed);
+            
+            renderTaskList('task-list', activeTasks);
+            renderTaskList('completed-task-list', completedTasks);
+        }
+
+        function renderTaskList(containerId, tasks) {
+            const container = document.getElementById(containerId);
+            const isCompleted = containerId === 'completed-task-list';
+            
+            container.innerHTML = tasks.map(task => {
+                const subtasksHtml = task.subtasks.map(subtask => `
+                    <li>
+                        <div class="subtask-item-container">
+                            <button class="checkbox-style-button" onclick="toggleSubtask(${task.id}, ${subtask.id})" style="${subtask.completed ? 'background-color: #4CAF50; color: white;' : ''}">
+                                ${subtask.completed ? '✓' : ''}
+                            </button>
+                            <span onclick="editSubtaskText(${task.id}, ${subtask.id}, this)" style="cursor: pointer; ${subtask.completed ? 'text-decoration: line-through; color: #888;' : ''}">${subtask.text}</span>
+                            <button onclick="deleteSubtask(${task.id}, ${subtask.id})" style="margin-left: auto; background: #ff6b6b; color: white; border: none; border-radius: 3px; padding: 2px 6px; font-size: 10px;">−</button>
+                        </div>
+                    </li>
+                `).join('');
+
+                return `
+                    <li style="margin-bottom: 15px; border: 1px solid #ddd; padding: 10px; border-radius: 5px; ${task.completed ? 'background-color: #f9f9f9;' : ''}">
+                        <div class="task-item-container">
+                            <button class="checkbox-style-button" onclick="toggleTask(${task.id})" style="${task.completed ? 'background-color: #4CAF50; color: white;' : ''}">
+                                ${task.completed ? '✓' : ''}
+                            </button>
+                            <span onclick="editTaskText(${task.id}, this)" style="cursor: pointer; font-weight: bold; ${task.completed ? 'text-decoration: line-through; color: #888;' : ''}">${task.text}</span>
+                            <button onclick="deleteTask(${task.id})" style="margin-left: auto; background: #ff6b6b; color: white; border: none; border-radius: 3px; padding: 4px 8px; font-size: 12px;">−</button>
+                        </div>
+                        ${task.subtasks.length > 0 ? `
+                            <ul class="subtask-list" style="margin-top: 10px;">
+                                ${subtasksHtml}
+                            </ul>
+                        ` : ''}
+                        ${!isCompleted ? `
+                            <div class="add-button-container">
+                                <button class="subtask-add-button" onclick="addSubtask(${task.id})">+ Add Subtask</button>
+                            </div>
+                        ` : ''}
+                    </li>
+                `;
+            }).join('');
+
+            if (tasks.length === 0) {
+                container.innerHTML = `<li style="color: #888; font-style: italic;">No tasks in this category</li>`;
+            }
+        }
+
+        function updateProgress() {
+            const totalTasks = getAllTasksCount();
+            const completedTasks = getCompletedTasksCount();
+            const percentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+            
+            document.getElementById('overall-progress-text').textContent = `${completedTasks} / ${totalTasks} tasks (${percentage}%)`;
+            document.getElementById('overall-progress-bar').style.width = `${percentage}%`;
+        }
+
+        function updateStats() {
+            const totalTasks = getAllTasksCount();
+            const completedTasks = getCompletedTasksCount();
+            const remainingTasks = totalTasks - completedTasks;
+            const percentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+            
+            document.getElementById('total-tasks').textContent = totalTasks;
+            document.getElementById('completed-tasks').textContent = completedTasks;
+            document.getElementById('remaining-tasks').textContent = remainingTasks;
+            document.getElementById('progress-percentage').textContent = `${percentage}%`;
+        }
+
+        function getAllTasksCount() {
+            let count = 0;
+            checklistData.tasks.forEach(task => {
+                count++; // Main task
+                count += task.subtasks.length; // Subtasks
+            });
+            return count;
+        }
+
+        function getCompletedTasksCount() {
+            let count = 0;
+            checklistData.tasks.forEach(task => {
+                if (task.completed) count++; // Main task
+                task.subtasks.forEach(subtask => {
+                    if (subtask.completed) count++; // Subtask
+                });
+            });
+            return count;
+        }
+
+        function clearCompleted() {
+            showConfirmModal('Clear Completed Tasks', 'Remove all completed tasks permanently? This cannot be undone.', () => {
+                checklistData.tasks = checklistData.tasks.filter(task => !task.completed);
+                saveData();
+                renderTasks();
+                updateProgress();
+                updateStats();
+            });
+        }
+
+        function showAll() {
+            renderTasks();
+        }
+
+        // Project title auto-save
+        document.getElementById('projectTitleInput').addEventListener('input', function() {
+            clearTimeout(this.saveTimeout);
+            this.saveTimeout = setTimeout(() => {
+                saveData();
+            }, 1000);
+        });
+
+        // Modal functions
+        function showInputModal(title, message, onConfirm, defaultValue = '') {
+            // Create modal if it doesn't exist
+            if (!document.getElementById('modalOverlay')) {
+                const modalHTML = `
+                    <div id="modalOverlay" class="modal-overlay" style="display: none;">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h3 id="modalTitle">Modal Title</h3>
+                            </div>
+                            <div class="modal-body">
+                                <p id="modalMessage">Modal message</p>
+                                <input type="text" id="modalInput" class="modal-input" style="display: none;" placeholder="Enter text...">
+                            </div>
+                            <div class="modal-footer">
+                                <button id="modalCancel" class="btn btn-secondary">Cancel</button>
+                                <button id="modalConfirm" class="btn btn-primary">OK</button>
+                            </div>
+                        </div>
+                    </div>
+                    <style>
+                        .modal-overlay {
+                            position: fixed;
+                            top: 0;
+                            left: 0;
+                            right: 0;
+                            bottom: 0;
+                            background: rgba(0, 0, 0, 0.5);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            z-index: 1000;
+                        }
+                        .modal-content {
+                            background: white;
+                            border-radius: 12px;
+                            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+                            min-width: 420px;
+                            max-width: 650px;
+                            margin: 20px;
+                            overflow: hidden;
+                        }
+                        .modal-header {
+                            padding: 24px 32px 20px 32px;
+                            border-bottom: 1px solid #e2e8f0;
+                            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+                        }
+                        .modal-header h3 {
+                            margin: 0;
+                            font-size: 1.25rem;
+                            font-weight: 600;
+                            color: #1e293b;
+                        }
+                        .modal-body {
+                            padding: 32px;
+                            background: #fefefe;
+                        }
+                        .modal-body p {
+                            margin: 0 0 20px 0;
+                            color: #64748b;
+                            line-height: 1.6;
+                            font-size: 15px;
+                        }
+                        .modal-input {
+                            width: 100%;
+                            padding: 16px 20px;
+                            border: 2px solid #e2e8f0;
+                            border-radius: 10px;
+                            font-size: 16px;
+                            outline: none;
+                            background: #ffffff;
+                            transition: all 0.2s ease;
+                            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+                            box-sizing: border-box;
+                        }
+                        .modal-input:focus {
+                            border-color: #3b82f6;
+                            box-shadow: 0 0 0 4px rgba(59,130,246,0.15), 0 4px 16px rgba(0, 0, 0, 0.1);
+                            transform: translateY(-1px);
+                        }
+                        .modal-input::placeholder {
+                            color: #94a3b8;
+                        }
+                        .modal-footer {
+                            padding: 24px 32px;
+                            border-top: 1px solid #e2e8f0;
+                            display: flex;
+                            gap: 12px;
+                            justify-content: flex-end;
+                            background: #f8fafc;
+                        }
+                        .btn {
+                            padding: 12px 24px;
+                            border-radius: 8px;
+                            font-size: 14px;
+                            font-weight: 500;
+                            cursor: pointer;
+                            transition: all 0.2s ease;
+                            border: none;
+                        }
+                        .btn-primary {
+                            background: #3b82f6;
+                            color: white;
+                        }
+                        .btn-primary:hover {
+                            background: #2563eb;
+                            transform: translateY(-1px);
+                            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+                        }
+                        .btn-secondary {
+                            background: #e2e8f0;
+                            color: #64748b;
+                        }
+                        .btn-secondary:hover {
+                            background: #cbd5e1;
+                            color: #475569;
+                        }
+                    </style>
+                `;
+                document.body.insertAdjacentHTML('beforeend', modalHTML);
+            }
+            
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalMessage').textContent = message;
+            document.getElementById('modalInput').style.display = 'block';
+            document.getElementById('modalInput').value = defaultValue;
+            document.getElementById('modalOverlay').style.display = 'flex';
+            
+            // Focus the input
+            setTimeout(() => document.getElementById('modalInput').focus(), 100);
+            
+            // Handle confirm
+            const handleConfirm = () => {
+                const value = document.getElementById('modalInput').value;
+                hideModal();
+                onConfirm(value);
+            };
+            
+            // Handle cancel
+            const handleCancel = () => {
+                hideModal();
+            };
+            
+            // Set up event listeners
+            document.getElementById('modalConfirm').onclick = handleConfirm;
+            document.getElementById('modalCancel').onclick = handleCancel;
+            
+            // Handle Enter key
+            document.getElementById('modalInput').onkeypress = (e) => {
+                if (e.key === 'Enter') handleConfirm();
+                if (e.key === 'Escape') handleCancel();
+            };
+        }
+        
+        function showConfirmModal(title, message, onConfirm) {
+            // Create modal if it doesn't exist
+            if (!document.getElementById('modalOverlay')) {
+                showInputModal('', '', () => {}); // Create the modal structure
+            }
+            
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalMessage').textContent = message;
+            document.getElementById('modalInput').style.display = 'none';
+            document.getElementById('modalOverlay').style.display = 'flex';
+            
+            // Handle confirm
+            document.getElementById('modalConfirm').onclick = () => {
+                hideModal();
+                onConfirm();
+            };
+            
+            // Handle cancel
+            document.getElementById('modalCancel').onclick = hideModal;
+        }
+        
+        function hideModal() {
+            const overlay = document.getElementById('modalOverlay');
+            if (overlay) {
+                overlay.style.display = 'none';
+                // Clean up event listeners
+                document.getElementById('modalConfirm').onclick = null;
+                document.getElementById('modalCancel').onclick = null;
+                const input = document.getElementById('modalInput');
+                if (input) input.onkeypress = null;
+            }
+        }
+
+        // Save checklist state for persistence across tool switches
+        function saveChecklistState() {
+            const projectTitleInput = document.getElementById('projectTitleInput');
+            const state = {
+                projectTitle: projectTitleInput ? projectTitleInput.value : checklistData.projectTitle,
+                showCompleted: checklistData.settings.showCompleted,
+                timestamp: Date.now()
+            };
+            sessionStorage.setItem('checklist-state', JSON.stringify(state));
+        }
+
+        // Restore checklist state when returning to checklist
+        function restoreChecklistState() {
+            try {
+                const savedState = sessionStorage.getItem('checklist-state');
+                if (savedState) {
+                    const state = JSON.parse(savedState);
+                    
+                    // Check if state is recent (within last hour)
+                    const now = Date.now();
+                    const stateAge = now - (state.timestamp || 0);
+                    const oneHour = 60 * 60 * 1000;
+                    
+                    if (stateAge < oneHour) {
+                        // Restore project title
+                        if (state.projectTitle) {
+                            checklistData.projectTitle = state.projectTitle;
+                            const projectTitleInput = document.getElementById('projectTitleInput');
+                            if (projectTitleInput) {
+                                projectTitleInput.value = state.projectTitle;
+                            }
+                        }
+                        
+                        // Restore view settings
+                        if (typeof state.showCompleted !== 'undefined') {
+                            checklistData.settings.showCompleted = state.showCompleted;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.log('Could not restore checklist state:', error);
+            }
+        }
+
+        // Initialize when page loads
+        async function init() {
+            await initStorage();
+            restoreChecklistState();
+        }
+
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
