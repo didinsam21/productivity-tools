@@ -1,12 +1,43 @@
 
-    <svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
-        <defs>
-            <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" style="stop-color:#4285f4;stop-opacity:1" />
-                <stop offset="100%" style="stop-color:#34a853;stop-opacity:1" />
-            </linearGradient>
-        </defs>
-        <rect width="192" height="192" rx="28.799999999999997" ry="28.799999999999997" fill="url(#grad)"/>
-        <text x="96" y="115.19999999999999" font-family="Arial, sans-serif" font-size="76.80000000000001" font-weight="bold" text-anchor="middle" fill="white">P</text>
-        <text x="96" y="163.2" font-family="Arial, sans-serif" font-size="23.04" text-anchor="middle" fill="white" opacity="0.9">PWA</text>
-    </svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="30" ry="30" fill="white" stroke="black" stroke-width="3"/>
+  
+  <!-- Checklist clipboard background -->
+  <rect x="48" y="30" width="96" height="120" rx="4.5" ry="4.5" fill="black" stroke="none"/>
+  <rect x="51" y="33" width="90" height="114" rx="3" ry="3" fill="white" stroke="none"/>
+  
+  <!-- Checklist items -->
+  <!-- Item 1 - completed -->
+  <rect x="60" y="45" width="7.5" height="7.5" fill="black" stroke="none"/>
+  <path d="M62 51 L64 53 L69 47" stroke="white" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="75" y="47" width="45" height="3" fill="black"/>
+  
+  <!-- Item 2 - completed -->
+  <rect x="60" y="60" width="7.5" height="7.5" fill="black" stroke="none"/>
+  <path d="M62 66 L64 68 L69 62" stroke="white" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="75" y="62" width="37.5" height="3" fill="black"/>
+  
+  <!-- Item 3 - in progress -->
+  <rect x="60" y="75" width="7.5" height="7.5" fill="none" stroke="black" stroke-width="0.8"/>
+  <rect x="75" y="77" width="52.5" height="3" fill="black"/>
+  
+  <!-- Item 4 - pending -->
+  <rect x="60" y="90" width="7.5" height="7.5" fill="none" stroke="black" stroke-width="0.8"/>
+  <rect x="75" y="92" width="30" height="3" fill="black"/>
+  
+  <!-- Clock/timer icon -->
+  <circle cx="120" cy="120" r="11.25" fill="none" stroke="black" stroke-width="1.5"/>
+  <path d="M120 111 L120 120 L126 126" stroke="black" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Small productivity icons -->
+  <!-- Calendar icon -->
+  <rect x="60" y="112.5" width="15" height="15" fill="none" stroke="black" stroke-width="1.2" rx="1.5"/>
+  <rect x="60" y="116.25" width="15" height="1.5" fill="black"/>
+  <circle cx="64" cy="114" r="0.75" fill="black"/>
+  <circle cx="71" cy="114" r="0.75" fill="black"/>
+  
+  <!-- Target/goal icon -->
+  <circle cx="90" cy="120" r="7.5" fill="none" stroke="black" stroke-width="1.2"/>
+  <circle cx="90" cy="120" r="4.5" fill="none" stroke="black" stroke-width="0.8"/>
+  <circle cx="90" cy="120" r="1.5" fill="black"/>
+</svg>
