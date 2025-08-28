@@ -90,6 +90,7 @@
         }
     </style>
     <script src="encrypted-storage.js"></script>
+    <script src="cloud-auth.js"></script>
 </head>
 <body>
     <div class="container">
@@ -109,6 +110,33 @@
                     <button id="enable-password-btn" class="btn btn-primary" style="display: none;">🔒 Enable Password Protection</button>
                     <button id="change-password-btn" class="btn btn-secondary" style="display: none;">🔑 Change Password</button>
                     <button id="disable-password-btn" class="btn btn-danger" style="display: none;">🔓 Disable Password Protection</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- PWA Features Section -->
+        <div class="settings-section">
+            <h3>📱 Progressive Web App</h3>
+            <div class="setting-item" id="install-item">
+                <label>Installation</label>
+                <p class="setting-description">Install this app on your device for offline access and better performance</p>
+                <div class="setting-buttons" id="install-section">
+                    <span id="install-status">Checking installation status...</span>
+                    <button id="install-btn" class="btn btn-primary" style="display: none;">📱 Install App</button>
+                </div>
+            </div>
+            <div class="setting-item">
+                <label>Offline Support</label>
+                <p class="setting-description">This app works completely offline after installation</p>
+                <div class="storage-info">
+                    <div class="info-item">
+                        <span class="info-label">Service Worker:</span>
+                        <span class="info-value" id="sw-status">Loading...</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Cache Status:</span>
+                        <span class="info-value" id="cache-status">Loading...</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -152,34 +180,161 @@
             </div>
         </div>
 
-        <!-- PWA Features Section -->
+        <!-- Cloud Storage Section -->
         <div class="settings-section">
-            <h3>📱 Progressive Web App</h3>
-            <div class="setting-item" id="install-item">
-                <label>Installation</label>
-                <p class="setting-description">Install this app on your device for offline access and better performance</p>
-                <div class="setting-buttons" id="install-section">
-                    <span id="install-status">Checking installation status...</span>
-                    <button id="install-btn" class="btn btn-primary" style="display: none;">📱 Install App</button>
+            <h3>☁️ Cloud Storage & Sync</h3>
+            <div class="setting-item">
+                <label>Cloud Provider</label>
+                <p class="setting-description">Connect to a cloud storage provider to automatically backup and sync your data across devices</p>
+                <div class="storage-info" id="cloud-storage-status">
+                    <div class="info-item">
+                        <span class="info-label">Status:</span>
+                        <span class="info-value" id="cloud-connection-status">Not connected</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Provider:</span>
+                        <span class="info-value" id="cloud-provider-name">None</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Last sync:</span>
+                        <span class="info-value" id="cloud-last-sync">Never</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Auto-sync:</span>
+                        <span class="info-value" id="cloud-auto-sync-status">Disabled</span>
+                    </div>
+                </div>
+                <div class="setting-buttons" id="cloud-storage-controls">
+                    <select id="cloud-provider-select" class="cloud-select">
+                        <option value="">Select Provider</option>
+                        <option value="googledrive">Google Drive</option>
+                        <option value="onedrive">Microsoft OneDrive</option>
+                        <option value="dropbox">Dropbox</option>
+                    </select>
+                    <button id="connect-cloud-btn" class="btn btn-primary" disabled>🔗 Connect</button>
+                    <button id="disconnect-cloud-btn" class="btn btn-secondary" style="display: none;">🔗 Disconnect</button>
+                    <button id="sync-now-btn" class="btn btn-secondary" style="display: none;">🔄 Sync Now</button>
+                    <button id="toggle-auto-sync-btn" class="btn btn-secondary" style="display: none;">⚙️ Auto-sync: OFF</button>
                 </div>
             </div>
             <div class="setting-item">
-                <label>Offline Support</label>
-                <p class="setting-description">This app works completely offline after installation</p>
-                <div class="storage-info">
-                    <div class="info-item">
-                        <span class="info-label">Service Worker:</span>
-                        <span class="info-value" id="sw-status">Loading...</span>
+                <label>Sync Settings</label>
+                <p class="setting-description">Configure sync behavior and security</p>
+                <div class="sync-options" id="sync-options" style="display: none;">
+                    <div class="sync-option">
+                        <input type="checkbox" id="sync-all-data" checked disabled>
+                        <label for="sync-all-data">📦 Sync complete data export (all productivity tools)</label>
                     </div>
-                    <div class="info-item">
-                        <span class="info-label">Cache Status:</span>
-                        <span class="info-value" id="cache-status">Loading...</span>
+                    <div class="sync-option">
+                        <input type="checkbox" id="encrypt-before-sync" checked>
+                        <label for="encrypt-before-sync">🔒 Always encrypt data before syncing to cloud</label>
+                    </div>
+                    <div class="sync-frequency">
+                        <label for="sync-frequency-select">Sync frequency:</label>
+                        <select id="sync-frequency-select">
+                            <option value="5">Every 5 minutes</option>
+                            <option value="15" selected>Every 15 minutes</option>
+                            <option value="30">Every 30 minutes</option>
+                            <option value="60">Every hour</option>
+                        </select>
                     </div>
                 </div>
             </div>
+            <div class="setting-item">
+                <label>API Configuration</label>
+                <p class="setting-description">Configure your own cloud provider API credentials for real integration</p>
+                <div class="api-config" id="api-config" style="display: none;">
+                    <div class="api-provider-selector">
+                        <label for="api-provider-select">Configure API for:</label>
+                        <select id="api-provider-select" class="cloud-select">
+                            <option value="">Select a provider to configure</option>
+                            <option value="google">Google Drive</option>
+                            <option value="microsoft">Microsoft OneDrive</option>
+                            <option value="dropbox">Dropbox</option>
+                        </select>
+                    </div>
+
+                    <!-- Google Drive API Configuration -->
+                    <div class="api-provider-section" id="google-api-section" style="display: none;">
+                        <h4>🔗 Google Drive API Configuration</h4>
+                        <div class="api-input-group">
+                            <label for="google-client-id">Client ID:</label>
+                            <input type="text" id="google-client-id" class="api-input" placeholder="your-app.googleusercontent.com">
+                        </div>
+                        <div class="api-input-group">
+                            <label for="google-client-secret">Client Secret:</label>
+                            <input type="password" id="google-client-secret" class="api-input" placeholder="GOCSPX-...">
+                        </div>
+                        <div class="api-input-group">
+                            <label for="google-redirect-uri">Redirect URI:</label>
+                            <input type="url" id="google-redirect-uri" class="api-input" placeholder="https://yoursite.com/auth/callback">
+                        </div>
+                        <p class="api-help">Get credentials from <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a></p>
+                    </div>
+
+                    <!-- Microsoft OneDrive API Configuration -->
+                    <div class="api-provider-section" id="microsoft-api-section" style="display: none;">
+                        <h4>🔗 Microsoft OneDrive API Configuration</h4>
+                        <div class="api-input-group">
+                            <label for="microsoft-client-id">Application (Client) ID:</label>
+                            <input type="text" id="microsoft-client-id" class="api-input" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+                        </div>
+                        <div class="api-input-group">
+                            <label for="microsoft-client-secret">Client Secret:</label>
+                            <input type="password" id="microsoft-client-secret" class="api-input" placeholder="xxxxx~xxxxx">
+                        </div>
+                        <div class="api-input-group">
+                            <label for="microsoft-tenant-id">Tenant ID:</label>
+                            <input type="text" id="microsoft-tenant-id" class="api-input" placeholder="common or your-tenant-id">
+                        </div>
+                        <div class="api-input-group">
+                            <label for="microsoft-redirect-uri">Redirect URI:</label>
+                            <input type="url" id="microsoft-redirect-uri" class="api-input" placeholder="https://yoursite.com/auth/callback">
+                        </div>
+                        <p class="api-help">Get credentials from <a href="https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade" target="_blank">Azure App Registrations</a></p>
+                    </div>
+
+                    <!-- Dropbox API Configuration -->
+                    <div class="api-provider-section" id="dropbox-api-section" style="display: none;">
+                        <h4>🔗 Dropbox API Configuration</h4>
+                        <div class="api-input-group">
+                            <label for="dropbox-app-key">App Key:</label>
+                            <input type="text" id="dropbox-app-key" class="api-input" placeholder="xxxxxxxxxxxxxxx">
+                        </div>
+                        <div class="api-input-group">
+                            <label for="dropbox-app-secret">App Secret:</label>
+                            <input type="password" id="dropbox-app-secret" class="api-input" placeholder="xxxxxxxxxxxxxxx">
+                        </div>
+                        <div class="api-input-group">
+                            <label for="dropbox-redirect-uri">Redirect URI:</label>
+                            <input type="url" id="dropbox-redirect-uri" class="api-input" placeholder="https://yoursite.com/auth/callback">
+                        </div>
+                        <p class="api-help">Get credentials from <a href="https://www.dropbox.com/developers/apps" target="_blank">Dropbox App Console</a></p>
+                    </div>
+
+                    <div class="api-actions">
+                        <button id="save-api-config" class="btn btn-primary">💾 Save API Configuration</button>
+                        <button id="clear-api-config" class="btn btn-secondary">🗑️ Clear Configuration</button>
+                        <button id="test-api-config" class="btn btn-secondary">🧪 Test Configuration</button>
+                    </div>
+                </div>
+                <div class="setting-buttons">
+                    <button id="toggle-api-config" class="btn btn-secondary">⚙️ Configure APIs</button>
+                </div>
+            </div>
+            <div class="setting-item">
+                <label>Conflict Resolution</label>
+                <p class="setting-description">How to handle conflicts when the same data is modified on multiple devices</p>
+                <div class="setting-buttons">
+                    <select id="conflict-resolution-select" class="cloud-select">
+                        <option value="prompt">Ask me what to do</option>
+                        <option value="local" selected>Keep local changes</option>
+                        <option value="remote">Keep cloud changes</option>
+                        <option value="merge">Try to merge automatically</option>
+                    </select>
+                </div>
+            </div>
         </div>
-
-
 
         <!-- App Information Footer -->
         <div class="app-info">
@@ -187,16 +342,31 @@
             <p>&copy; 2025 Tolin Simpson</p>
             <p class="version-info" id="version-info">Version loading...</p>
             <script>
-                // Fetch version from manifest.json and update the version-info element
-                fetch('manifest.json')
-                    .then(response => response.json())
-                    .then(manifest => {
-                        const version = manifest.version || 'Unknown';
-                        document.getElementById('version-info').textContent = `Version ${version}`;
-                    })
-                    .catch(() => {
-                        document.getElementById('version-info').textContent = 'Version unavailable';
-                    });
+                // Try to fetch version from manifest.json, with CORS-safe fallback
+                async function loadVersion() {
+                    try {
+                        // Check if we're on a local file system or server
+                        if (window.location.protocol === 'file:') {
+                            // For local files, use a hardcoded version to avoid CORS
+                            document.getElementById('version-info').textContent = 'Version 1.0.0';
+                            return;
+                        }
+                        
+                        const response = await fetch('manifest.json');
+                        if (response.ok) {
+                            const manifest = await response.json();
+                            const version = manifest.version || 'Unknown';
+                            document.getElementById('version-info').textContent = `Version ${version}`;
+                        } else {
+                            throw new Error('Manifest not accessible');
+                        }
+                    } catch (error) {
+                        // Fallback version for CORS or other issues
+                        document.getElementById('version-info').textContent = 'Version 1.0.0';
+                    }
+                }
+                
+                loadVersion();
             </script>
         </div>
     </div>
@@ -219,6 +389,127 @@
             <div class="modal-footer">
                 <button id="passwordSetupCancel" class="btn btn-secondary">Cancel</button>
                 <button id="passwordSetupConfirm" class="btn btn-primary">🔒 Set Password</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cloud Authentication Modals -->
+    <!-- Google Drive Sign-In Modal -->
+    <div id="googleAuthModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content auth-modal">
+            <div class="modal-header">
+                <h3>🔗 Connect to Google Drive</h3>
+            </div>
+            <div class="modal-body">
+                <div class="auth-provider-logo">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cGF0aCBmaWxsPSIjRkZDMTA3IiBkPSJtNDMuNjExIDIwLjA4M0g0Mi41MDJ2LS4zMzNIMjR2OGgxMS4zMDNjLTEuNjQ5IDQuNjU3LTYuMDggOC02My4zMDMgOC02LjYyNyAwLTEyLTUuMzczLTEyLTEyIDAtNi42MjcgNS4zNzMtMTIgMTItMTIgMy4wNTkgMCA1Ljg0MiAxLjE1NCA3Ljk2MSAzLjAzOWw1LjY1Ny01LjY1N0MyOS42NTggNS4wMzggMjcuMDI2IDQgMjQgNCA5LjMzIDQgMCAxNS42OCAwIDMyczcuNjc3IDI4IDI0IDI4IDI0IDAgMjQtMjhjMC0xLjM0MS0uMTM4LTIuNjUtLjM4OS0zLjkxN3oiLz4KICA8cGF0aCBmaWxsPSIjRkYzRDA1IiBkPSJtNi4zMDYgMTQuNjkxIDYuNTcxIDQuODE5QzE0Ljg5MSAxNS43ODUgMTkuMDY3IDEyIDI0IDEyYzMuMDU5IDAgNS44NDIgMS4xNTQgNy45NjEgMy4wMzlsNS42NTctNS42NTdDMzQuNjU4IDUuMDM3IDI5LjAyNiA0IDI0IDQgMTYuMzE4IDQgOS42NTYgOC4zMzcgNi4zMDYgMTQuNjkxeiIvPgogIDxwYXRoIGZpbGw9IiM0Q0FGNTASCSA9Im0yNCA0NGMxNS4xNzQgMCAyMy45ODYtMTIuNTg1IDI0LTI4IDAtLjg1Ni0uMDU0LTEuNzA3LS4xNzctMi41NGwtOC4wMTQgNS45NjFjLTEuNzQ0IDMuMjc5LTUuMDAyIDUuNTc5LTguODA5IDUuNTc5LTQuNzQ3IDAtOC44NTgtMy4zMDQtOS44OTYtNy44MzlsLTYuNTI0IDUuMDI1QzExLjQ4IDM5LjQ0NiAxNy40MTggNDQgMjQgNDR6Ii8+CiAgPHBhdGggZmlsbD0iIzM0QTg1MyIgZD0iTTQyLjUwMiAyNi42NDJIMTB2OGgxMS4zMDNjLTEuNjQ5IDQuNjU3LTYuMDggOC02My4zMDMgOC02LjYyNyAwLTEyLTUuMzczLTEyLTEyIDAtNi42MjcgNS4zNzMtMTIgMTItMTIgMy4wNTkgMCA1Ljg0MiAxLjE1NCA3Ljk2MSAzLjAzOWw1LjY1Ny01LjY1N0MyOS42NTggNS4wMzggMjcuMDI2IDQgMjQgNGMtMTAuNjY5IDAtMTkuNjY3IDguNjQ5LTE5LjY2NyAyMCAwIDEyIDktMTMgOS0xMyAwIDAtMS4wNS0uMzUgMS0zaDEuMyAx LjM0MS0uMTM4IDIuNjUtLjM4OSAzLjkxN3oiLz4KPC9zdmc+" alt="Google" class="provider-logo">
+                </div>
+                <p class="auth-description">Sign in to your Google account to connect Google Drive for cloud synchronization</p>
+                
+                <!-- Email/Password Method -->
+                <div class="auth-method" id="google-credentials-method">
+                    <div class="auth-form">
+                        <input type="email" id="googleEmailInput" class="auth-input" placeholder="Enter your Gmail address" autocomplete="username email" name="email">
+                        <input type="password" id="googlePasswordInput" class="auth-input" placeholder="Enter your password" autocomplete="current-password" name="password">
+                        <div class="auth-options">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="googleRememberMe">
+                                <span>Remember me</span>
+                            </label>
+                        </div>
+                        <button id="googleSignInBtn" class="btn btn-primary auth-submit">🔐 Sign In</button>
+                    </div>
+                </div>
+
+                <div id="googleAuthError" class="error-message" style="display: none;"></div>
+                
+                <div class="auth-footer">
+                    <p><a href="#" id="googleForgotPassword">Forgot password?</a></p>
+                    <p><a href="#" id="googleCreateAccount">Create account</a></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="googleAuthCancel" class="btn btn-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Microsoft OneDrive Sign-In Modal -->
+    <div id="microsoftAuthModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content auth-modal">
+            <div class="modal-header">
+                <h3>🔗 Connect to OneDrive</h3>
+            </div>
+            <div class="modal-body">
+                <div class="auth-provider-logo">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cGF0aCBmaWxsPSIjRkY1NzIyIiBkPSJNNiA2djM2aDM2VjZINnoiLz4KICA8cGF0aCBmaWxsPSIjRkZGRkZGIiBkPSJNMzAgMjJoLTR2LTRoNHY0em0wIDZoLTR2LTRoNHY0em0wIDZoLTR2LTRoNHY0em0tNiAwSDEwVjE2aDE0djE4eiIvPgo8L3N2Zz4=" alt="Microsoft" class="provider-logo">
+                </div>
+                <p class="auth-description">Sign in to your Microsoft account to connect OneDrive for cloud synchronization</p>
+                
+                <!-- Email/Password Method -->
+                <div class="auth-method" id="microsoft-credentials-method">
+                    <div class="auth-form">
+                        <input type="email" id="microsoftEmailInput" class="auth-input" placeholder="Enter your Microsoft email" autocomplete="username email" name="email">
+                        <input type="password" id="microsoftPasswordInput" class="auth-input" placeholder="Enter your password" autocomplete="current-password" name="password">
+                        <div class="auth-options">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="microsoftRememberMe">
+                                <span>Remember me</span>
+                            </label>
+                        </div>
+                        <button id="microsoftSignInBtn" class="btn btn-primary auth-submit">🔐 Sign In</button>
+                    </div>
+                </div>
+
+                <div id="microsoftAuthError" class="error-message" style="display: none;"></div>
+                
+                <div class="auth-footer">
+                    <p><a href="#" id="microsoftForgotPassword">Forgot password?</a></p>
+                    <p><a href="#" id="microsoftCreateAccount">Create account</a></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="microsoftAuthCancel" class="btn btn-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dropbox Sign-In Modal -->
+    <div id="dropboxAuthModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content auth-modal">
+            <div class="modal-header">
+                <h3>🔗 Connect to Dropbox</h3>
+            </div>
+            <div class="modal-body">
+                <div class="auth-provider-logo">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cGF0aCBmaWxsPSIjMDA3N0ZGIiBkPSJNNy4xIDEyTDI0IDI0bDE2LjktMTJMMjQgMHoiLz4KICA8cGF0aCBmaWxsPSIjMDA1REQ3IiBkPSJNNy4xIDEyIDI0IDI0djEyTDcuMSAyNHoiLz4KICA8cGF0aCBmaWxsPSIjMDA5N0ZGIiBkPSJNNDAuOSAxMiAyNCAyNHYxMmwxNi45LTEyeiIvPgogIDxwYXRoIGZpbGw9IiMwMDc3RkYiIGQ9Ik0yNCAyNGwtMTYuOSAxMkwyNCA0OGwxNi45LTEyeiIvPgo8L3N2Zz4=" alt="Dropbox" class="provider-logo">
+                </div>
+                <p class="auth-description">Sign in to your Dropbox account to connect Dropbox for cloud synchronization</p>
+                
+                <!-- Email/Password Method -->
+                <div class="auth-method" id="dropbox-credentials-method">
+                    <div class="auth-form">
+                        <input type="email" id="dropboxEmailInput" class="auth-input" placeholder="Enter your Dropbox email" autocomplete="username email" name="email">
+                        <input type="password" id="dropboxPasswordInput" class="auth-input" placeholder="Enter your password" autocomplete="current-password" name="password">
+                        <div class="auth-options">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="dropboxRememberMe">
+                                <span>Remember me</span>
+                            </label>
+                        </div>
+                        <button id="dropboxSignInBtn" class="btn btn-primary auth-submit">🔐 Sign In</button>
+                    </div>
+                </div>
+
+                <div id="dropboxAuthError" class="error-message" style="display: none;"></div>
+                
+                <div class="auth-footer">
+                    <p><a href="#" id="dropboxForgotPassword">Forgot password?</a></p>
+                    <p><a href="#" id="dropboxCreateAccount">Create account</a></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="dropboxAuthCancel" class="btn btn-secondary">Cancel</button>
             </div>
         </div>
     </div>
@@ -289,6 +580,287 @@
             display: flex;
             gap: 8px;
             justify-content: flex-end;
+        }
+        .cloud-select {
+            padding: 6px 12px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            background: #fff;
+            font-size: 0.9rem;
+            margin-right: 8px;
+        }
+        .sync-options {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 3px;
+            border: 1px solid #e9ecef;
+        }
+        .sync-option {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .sync-option:last-child {
+            margin-bottom: 0;
+        }
+        .sync-option input[type="checkbox"] {
+            margin-right: 8px;
+        }
+        .sync-option label {
+            margin: 0;
+            font-weight: normal;
+            cursor: pointer;
+        }
+        .sync-frequency {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #e9ecef;
+        }
+        .sync-frequency label {
+            display: inline-block;
+            margin-right: 8px;
+            font-weight: bold;
+        }
+        .sync-frequency select {
+            padding: 4px 8px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            background: #fff;
+        }
+        /* Authentication Modal Styles */
+        .auth-modal .modal-content {
+            max-width: 450px;
+            width: 95vw;
+        }
+        .auth-provider-logo {
+            text-align: center;
+            margin-bottom: 16px;
+        }
+        .provider-logo {
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+        }
+        .auth-description {
+            text-align: center;
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+        }
+        .auth-method {
+            margin-bottom: 20px;
+        }
+        .auth-method-title {
+            font-weight: bold;
+            margin-bottom: 12px;
+            color: #333;
+            font-size: 0.95rem;
+        }
+        .auth-method-desc {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 8px;
+            text-align: center;
+        }
+        .oauth-btn {
+            width: 100%;
+            padding: 12px;
+            font-size: 1rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+            border: none;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .oauth-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
+        }
+        .auth-divider {
+            text-align: center;
+            margin: 20px 0;
+            position: relative;
+        }
+        .auth-divider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: #e0e0e0;
+        }
+        .auth-divider span {
+            background: white;
+            padding: 0 16px;
+            color: #666;
+            font-size: 0.9rem;
+            position: relative;
+            z-index: 1;
+        }
+        .auth-form {
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
+        }
+        .auth-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            outline: none;
+            margin-bottom: 12px;
+            box-sizing: border-box;
+            transition: border-color 0.3s ease;
+        }
+        .auth-input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+        }
+        .auth-options {
+            margin: 12px 0;
+        }
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: #555;
+        }
+        .checkbox-label input[type="checkbox"] {
+            margin-right: 8px;
+            width: auto;
+        }
+        .auth-submit {
+            width: 100%;
+            padding: 10px;
+            font-weight: bold;
+            margin-top: 8px;
+        }
+        .auth-footer {
+            text-align: center;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid #e9ecef;
+        }
+        .auth-footer p {
+            margin: 4px 0;
+        }
+        .auth-footer a {
+            color: #3b82f6;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+        .auth-footer a:hover {
+            text-decoration: underline;
+        }
+        /* API Configuration Styles */
+        .api-config {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 16px;
+            margin-top: 12px;
+        }
+        .api-provider-selector {
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .api-provider-selector label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #495057;
+        }
+        .api-provider-section {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        .api-provider-section:last-of-type {
+            margin-bottom: 16px;
+        }
+        .api-provider-section h4 {
+            margin: 0 0 12px 0;
+            color: #495057;
+            font-size: 1rem;
+            border-bottom: 1px solid #e9ecef;
+            padding-bottom: 8px;
+        }
+        .api-input-group {
+            margin-bottom: 12px;
+        }
+        .api-input-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #495057;
+            font-size: 0.9rem;
+        }
+        .api-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            box-sizing: border-box;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        }
+        .api-input:focus {
+            border-color: #80bdff;
+            outline: 0;
+            box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+        }
+        .api-input[type="password"] {
+            font-family: monospace;
+        }
+        .api-help {
+            margin: 8px 0 0 0;
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+        .api-help a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .api-help a:hover {
+            text-decoration: underline;
+        }
+        .api-actions {
+            border-top: 1px solid #e9ecef;
+            padding-top: 12px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .api-status {
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            margin-top: 8px;
+        }
+        .api-status.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .api-status.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .api-status.warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
         }
     </style>
 
@@ -893,9 +1465,451 @@
         document.getElementById('clear-btn').addEventListener('click', clearAllData);
         document.getElementById('install-btn').addEventListener('click', installApp);
 
+        // Cloud Storage Management - using external cloud-auth.js
+        let cloudStorageManager = null;
+        let cloudAuthUI = null;
+
+        // Initialize cloud storage manager
+        async function initCloudStorage() {
+            cloudStorageManager = new CloudStorageManager();
+            cloudAuthUI = new CloudAuthUI(cloudStorageManager);
+            await cloudStorageManager.initialize(storage);
+        }
+
+        // Cloud storage event handlers
+        function handleProviderChange() {
+            const providerSelect = document.getElementById('cloud-provider-select');
+            const connectBtn = document.getElementById('connect-cloud-btn');
+            connectBtn.disabled = !providerSelect.value;
+        }
+
+        async function connectToCloud() {
+            const provider = document.getElementById('cloud-provider-select').value;
+            
+            const providerMap = {
+                'googledrive': 'google',
+                'onedrive': 'microsoft',
+                'dropbox': 'dropbox'
+            };
+            
+            const uiProvider = providerMap[provider];
+            if (uiProvider) {
+                cloudAuthUI.showAuthModal(uiProvider);
+            } else {
+                alert('❌ Please select a cloud storage provider.');
+            }
+        }
+
+        // Authentication wrapper functions for UI events
+        async function handleGoogleSignIn() {
+            await cloudAuthUI.handleCredentialSignIn('google');
+        }
+
+        async function handleMicrosoftSignIn() {
+            await cloudAuthUI.handleCredentialSignIn('microsoft');
+        }
+
+        async function handleDropboxSignIn() {
+            await cloudAuthUI.handleCredentialSignIn('dropbox');
+        }
+
+        function handleForgotPassword(provider) {
+            cloudAuthUI.handleForgotPassword(provider);
+        }
+
+        function handleCreateAccount(provider) {
+            cloudAuthUI.handleCreateAccount(provider);
+        }
+
+        // Encryption settings handler
+        function handleEncryptionToggle() {
+            const encryptCheckbox = document.getElementById('encrypt-before-sync');
+            if (cloudStorageManager) {
+                cloudStorageManager.encryptBeforeSync = encryptCheckbox.checked;
+                cloudStorageManager.saveCloudSettings();
+            }
+        }
+
+        // API Configuration Management
+        function toggleApiConfig() {
+            const apiConfig = document.getElementById('api-config');
+            const toggleBtn = document.getElementById('toggle-api-config');
+            
+            if (apiConfig.style.display === 'none') {
+                apiConfig.style.display = 'block';
+                toggleBtn.textContent = '⚙️ Hide API Configuration';
+                loadApiConfig();
+            } else {
+                apiConfig.style.display = 'none';
+                toggleBtn.textContent = '⚙️ Configure APIs';
+            }
+        }
+
+        function handleApiProviderSelection() {
+            const providerSelect = document.getElementById('api-provider-select');
+            const selectedProvider = providerSelect.value;
+            
+            // Hide all provider sections
+            document.getElementById('google-api-section').style.display = 'none';
+            document.getElementById('microsoft-api-section').style.display = 'none';
+            document.getElementById('dropbox-api-section').style.display = 'none';
+            
+            // Show selected provider section
+            if (selectedProvider) {
+                const sectionId = selectedProvider + '-api-section';
+                const section = document.getElementById(sectionId);
+                if (section) {
+                    section.style.display = 'block';
+                }
+            }
+        }
+
+        async function loadApiConfig() {
+            try {
+                const apiSettings = await storage.loadEncrypted('api-credentials');
+                if (apiSettings) {
+                    // Google Drive
+                    document.getElementById('google-client-id').value = apiSettings.google?.clientId || '';
+                    document.getElementById('google-client-secret').value = apiSettings.google?.clientSecret || '';
+                    document.getElementById('google-redirect-uri').value = apiSettings.google?.redirectUri || '';
+                    
+                    // Microsoft OneDrive
+                    document.getElementById('microsoft-client-id').value = apiSettings.microsoft?.clientId || '';
+                    document.getElementById('microsoft-client-secret').value = apiSettings.microsoft?.clientSecret || '';
+                    document.getElementById('microsoft-tenant-id').value = apiSettings.microsoft?.tenantId || 'common';
+                    document.getElementById('microsoft-redirect-uri').value = apiSettings.microsoft?.redirectUri || '';
+                    
+                    // Dropbox
+                    document.getElementById('dropbox-app-key').value = apiSettings.dropbox?.appKey || '';
+                    document.getElementById('dropbox-app-secret').value = apiSettings.dropbox?.appSecret || '';
+                    document.getElementById('dropbox-redirect-uri').value = apiSettings.dropbox?.redirectUri || '';
+                }
+            } catch (error) {
+                console.error('Error loading API configuration:', error);
+            }
+        }
+
+        async function saveApiConfig() {
+            try {
+                // Load existing settings
+                const existingSettings = await storage.loadEncrypted('api-credentials') || {};
+                
+                // Get currently selected provider
+                const selectedProvider = document.getElementById('api-provider-select').value;
+                
+                if (!selectedProvider) {
+                    showApiStatus('Please select a provider to configure.', 'warning');
+                    return;
+                }
+
+                // Update settings for the selected provider
+                const providerConfig = {};
+                
+                if (selectedProvider === 'google') {
+                    providerConfig.clientId = document.getElementById('google-client-id').value.trim();
+                    providerConfig.clientSecret = document.getElementById('google-client-secret').value.trim();
+                    providerConfig.redirectUri = document.getElementById('google-redirect-uri').value.trim();
+                } else if (selectedProvider === 'microsoft') {
+                    providerConfig.clientId = document.getElementById('microsoft-client-id').value.trim();
+                    providerConfig.clientSecret = document.getElementById('microsoft-client-secret').value.trim();
+                    providerConfig.tenantId = document.getElementById('microsoft-tenant-id').value.trim() || 'common';
+                    providerConfig.redirectUri = document.getElementById('microsoft-redirect-uri').value.trim();
+                } else if (selectedProvider === 'dropbox') {
+                    providerConfig.appKey = document.getElementById('dropbox-app-key').value.trim();
+                    providerConfig.appSecret = document.getElementById('dropbox-app-secret').value.trim();
+                    providerConfig.redirectUri = document.getElementById('dropbox-redirect-uri').value.trim();
+                }
+
+                // Merge with existing settings
+                const apiSettings = {
+                    ...existingSettings,
+                    [selectedProvider]: providerConfig,
+                    lastUpdated: new Date().toISOString()
+                };
+
+                await storage.saveEncrypted('api-credentials', apiSettings);
+                
+                // Update cloud manager with new credentials
+                if (cloudStorageManager) {
+                    cloudStorageManager.apiCredentials = apiSettings;
+                }
+                
+                const providerName = selectedProvider === 'google' ? 'Google Drive' : 
+                                   selectedProvider === 'microsoft' ? 'Microsoft OneDrive' : 'Dropbox';
+                showApiStatus(`${providerName} configuration saved successfully!`, 'success');
+            } catch (error) {
+                console.error('Error saving API configuration:', error);
+                showApiStatus('Failed to save configuration: ' + error.message, 'error');
+            }
+        }
+
+        async function clearApiConfig() {
+            if (!confirm('Are you sure you want to clear all API configuration? This will remove all stored credentials.')) {
+                return;
+            }
+
+            try {
+                await storage.saveEncrypted('api-credentials', {});
+                
+                // Clear all input fields
+                document.querySelectorAll('.api-input').forEach(input => {
+                    input.value = '';
+                });
+                
+                // Update cloud manager
+                if (cloudStorageManager) {
+                    cloudStorageManager.apiCredentials = {};
+                }
+                
+                showApiStatus('Configuration cleared successfully!', 'success');
+            } catch (error) {
+                console.error('Error clearing API configuration:', error);
+                showApiStatus('Failed to clear configuration: ' + error.message, 'error');
+            }
+        }
+
+        async function testApiConfig() {
+            try {
+                const selectedProvider = document.getElementById('api-provider-select').value;
+                
+                if (!selectedProvider) {
+                    showApiStatus('Please select a provider to test.', 'warning');
+                    return;
+                }
+                
+                showApiStatus(`Testing ${selectedProvider} API configuration...`, 'warning');
+                
+                const issues = [];
+                
+                if (selectedProvider === 'google') {
+                    const clientId = document.getElementById('google-client-id').value.trim();
+                    const clientSecret = document.getElementById('google-client-secret').value.trim();
+                    const redirectUri = document.getElementById('google-redirect-uri').value.trim();
+                    
+                    if (!clientId) issues.push('Client ID is required');
+                    else if (!clientId.includes('.googleusercontent.com')) {
+                        issues.push('Client ID should end with .googleusercontent.com');
+                    }
+                    
+                    if (!clientSecret) issues.push('Client Secret is required');
+                    else if (!clientSecret.startsWith('GOCSPX-')) {
+                        issues.push('Client Secret should start with GOCSPX-');
+                    }
+                    
+                    if (redirectUri && !redirectUri.startsWith('https://')) {
+                        issues.push('Redirect URI should use HTTPS');
+                    }
+                } else if (selectedProvider === 'microsoft') {
+                    const clientId = document.getElementById('microsoft-client-id').value.trim();
+                    const clientSecret = document.getElementById('microsoft-client-secret').value.trim();
+                    const redirectUri = document.getElementById('microsoft-redirect-uri').value.trim();
+                    
+                    if (!clientId) issues.push('Application (Client) ID is required');
+                    else if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientId)) {
+                        issues.push('Client ID should be a valid GUID format');
+                    }
+                    
+                    if (!clientSecret) issues.push('Client Secret is required');
+                    
+                    if (redirectUri && !redirectUri.startsWith('https://')) {
+                        issues.push('Redirect URI should use HTTPS');
+                    }
+                } else if (selectedProvider === 'dropbox') {
+                    const appKey = document.getElementById('dropbox-app-key').value.trim();
+                    const appSecret = document.getElementById('dropbox-app-secret').value.trim();
+                    const redirectUri = document.getElementById('dropbox-redirect-uri').value.trim();
+                    
+                    if (!appKey) issues.push('App Key is required');
+                    if (!appSecret) issues.push('App Secret is required');
+                    
+                    if (redirectUri && !redirectUri.startsWith('https://')) {
+                        issues.push('Redirect URI should use HTTPS');
+                    }
+                }
+                
+                if (issues.length > 0) {
+                    showApiStatus('Issues found:\n• ' + issues.join('\n• '), 'error');
+                } else {
+                    const providerName = selectedProvider === 'google' ? 'Google Drive' : 
+                                       selectedProvider === 'microsoft' ? 'Microsoft OneDrive' : 'Dropbox';
+                    showApiStatus(`${providerName} configuration looks valid! ✅\n\nNote: This validates format only, not actual API connectivity.`, 'success');
+                }
+                
+            } catch (error) {
+                console.error('Error testing API configuration:', error);
+                showApiStatus('Test failed: ' + error.message, 'error');
+            }
+        }
+
+        function showApiStatus(message, type) {
+            // Remove any existing status
+            const existingStatus = document.querySelector('.api-status');
+            if (existingStatus) {
+                existingStatus.remove();
+            }
+            
+            // Create new status
+            const status = document.createElement('div');
+            status.className = `api-status ${type}`;
+            status.textContent = message;
+            
+            // Add to API actions section
+            const apiActions = document.querySelector('.api-actions');
+            apiActions.appendChild(status);
+            
+            // Auto-remove after 5 seconds for success messages
+            if (type === 'success') {
+                setTimeout(() => {
+                    if (status.parentNode) {
+                        status.remove();
+                    }
+                }, 5000);
+            }
+        }
+
+        function updateSyncFrequency() {
+            const frequency = parseInt(document.getElementById('sync-frequency-select').value);
+            cloudStorageManager.syncFrequency = frequency;
+            cloudStorageManager.saveCloudSettings();
+            
+            if (cloudStorageManager.autoSyncEnabled) {
+                cloudStorageManager.startAutoSync();
+            }
+        }
+
+        // Add cloud storage event listeners
+        function setupCloudEventListeners() {
+            document.getElementById('cloud-provider-select').addEventListener('change', handleProviderChange);
+            document.getElementById('connect-cloud-btn').addEventListener('click', connectToCloud);
+            document.getElementById('disconnect-cloud-btn').addEventListener('click', () => cloudStorageManager.disconnect());
+            document.getElementById('sync-now-btn').addEventListener('click', () => cloudStorageManager.syncNow());
+            document.getElementById('toggle-auto-sync-btn').addEventListener('click', () => cloudStorageManager.toggleAutoSync());
+            document.getElementById('sync-frequency-select').addEventListener('change', updateSyncFrequency);
+        }
+
+        // Add authentication modal event listeners
+        function setupAuthEventListeners() {
+            // Google authentication events
+            document.getElementById('googleSignInBtn').addEventListener('click', handleGoogleSignIn);
+            document.getElementById('googleAuthCancel').addEventListener('click', () => cloudAuthUI.hideAuthModal('google'));
+            document.getElementById('googleForgotPassword').addEventListener('click', (e) => {
+                e.preventDefault();
+                handleForgotPassword('google');
+            });
+            document.getElementById('googleCreateAccount').addEventListener('click', (e) => {
+                e.preventDefault();
+                handleCreateAccount('google');
+            });
+
+            // Microsoft authentication events  
+            document.getElementById('microsoftSignInBtn').addEventListener('click', handleMicrosoftSignIn);
+            document.getElementById('microsoftAuthCancel').addEventListener('click', () => cloudAuthUI.hideAuthModal('microsoft'));
+            document.getElementById('microsoftForgotPassword').addEventListener('click', (e) => {
+                e.preventDefault();
+                handleForgotPassword('microsoft');
+            });
+            document.getElementById('microsoftCreateAccount').addEventListener('click', (e) => {
+                e.preventDefault();
+                handleCreateAccount('microsoft');
+            });
+
+            // Dropbox authentication events
+            document.getElementById('dropboxSignInBtn').addEventListener('click', handleDropboxSignIn);
+            document.getElementById('dropboxAuthCancel').addEventListener('click', () => cloudAuthUI.hideAuthModal('dropbox'));
+            document.getElementById('dropboxForgotPassword').addEventListener('click', (e) => {
+                e.preventDefault();
+                handleForgotPassword('dropbox');
+            });
+            document.getElementById('dropboxCreateAccount').addEventListener('click', (e) => {
+                e.preventDefault();
+                handleCreateAccount('dropbox');
+            });
+
+            // Enter key support for auth forms
+            document.getElementById('googleEmailInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    document.getElementById('googlePasswordInput').focus();
+                }
+            });
+            document.getElementById('googlePasswordInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    handleGoogleSignIn();
+                }
+            });
+            document.getElementById('microsoftEmailInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    document.getElementById('microsoftPasswordInput').focus();
+                }
+            });
+            document.getElementById('microsoftPasswordInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    handleMicrosoftSignIn();
+                }
+            });
+            document.getElementById('dropboxEmailInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    document.getElementById('dropboxPasswordInput').focus();
+                }
+            });
+            document.getElementById('dropboxPasswordInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    handleDropboxSignIn();
+                }
+            });
+
+            // Sync settings event listeners
+            document.getElementById('encrypt-before-sync').addEventListener('change', handleEncryptionToggle);
+            
+            // API configuration event listeners
+            document.getElementById('toggle-api-config').addEventListener('click', toggleApiConfig);
+            document.getElementById('api-provider-select').addEventListener('change', handleApiProviderSelection);
+            document.getElementById('save-api-config').addEventListener('click', saveApiConfig);
+            document.getElementById('clear-api-config').addEventListener('click', clearApiConfig);
+            document.getElementById('test-api-config').addEventListener('click', testApiConfig);
+
+            // Escape key to close modals
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    const googleModal = document.getElementById('googleAuthModal');
+                    const microsoftModal = document.getElementById('microsoftAuthModal');
+                    const dropboxModal = document.getElementById('dropboxAuthModal');
+                    
+                    if (googleModal.style.display === 'flex') {
+                        cloudAuthUI.hideAuthModal('google');
+                    }
+                    if (microsoftModal.style.display === 'flex') {
+                        cloudAuthUI.hideAuthModal('microsoft');
+                    }
+                    if (dropboxModal.style.display === 'flex') {
+                        cloudAuthUI.hideAuthModal('dropbox');
+                    }
+                }
+            });
+
+            // Click outside modal to close
+            document.getElementById('googleAuthModal').addEventListener('click', (e) => {
+                if (e.target === e.currentTarget) {
+                    cloudAuthUI.hideAuthModal('google');
+                }
+            });
+            document.getElementById('microsoftAuthModal').addEventListener('click', (e) => {
+                if (e.target === e.currentTarget) {
+                    cloudAuthUI.hideAuthModal('microsoft');
+                }
+            });
+            document.getElementById('dropboxAuthModal').addEventListener('click', (e) => {
+                if (e.target === e.currentTarget) {
+                    cloudAuthUI.hideAuthModal('dropbox');
+                }
+            });
+        }
+
         // Initialize when page loads
         window.addEventListener('load', async () => {
             await initStorage();
+            await initCloudStorage();
+            setupCloudEventListeners();
+            setupAuthEventListeners();
         });
     </script>
 </body>

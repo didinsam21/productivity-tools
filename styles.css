@@ -77,13 +77,13 @@ body {
 .app-nav {
     background: var(--surface-elevated);
     border-bottom: 1px solid var(--border-color);
-    padding: var(--spacing-md) 0;
+    padding: var(--spacing-sm) 0;
     position: sticky;
     top: 0;
     z-index: 90;
     box-shadow: var(--shadow-sm);
-    height: 76px; /* Fixed height for calculation */
-    min-height: 76px;
+    height: 64px; /* Reduced height for more compact design */
+    min-height: 64px;
 }
 
 .nav-container {
@@ -92,8 +92,8 @@ body {
     align-items: center;
     max-width: 1400px;
     margin: 0 auto;
-    padding: 0 var(--spacing-md);
-    gap: var(--spacing-sm);
+    padding: 0 var(--spacing-sm);
+    gap: var(--spacing-xs); /* Reduced gap for more compact layout */
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
 }
@@ -106,16 +106,17 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: var(--spacing-xs);
-    padding: var(--spacing-sm) var(--spacing-md);
+    gap: 2px; /* Minimal gap between icon and text */
+    padding: var(--spacing-xs) var(--spacing-sm);
     border: none;
     background: none;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-sm);
     cursor: pointer;
     transition: all 0.2s ease;
     color: var(--text-secondary);
-    min-width: 80px;
+    min-width: 56px; /* Reduced from 80px for more compact design */
     white-space: nowrap;
+    flex-shrink: 0; /* Prevent items from shrinking */
 }
 
 .nav-item:hover {
@@ -129,12 +130,13 @@ body {
 }
 
 .nav-icon {
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-base); /* Reduced from lg for compactness */
 }
 
 .nav-text {
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-xs); /* Reduced from sm for compactness */
     font-weight: 500;
+    line-height: 1;
 }
 
 /* Main Content */
@@ -1208,20 +1210,30 @@ body {
 @media (max-width: 768px) {
     .app-nav {
         position: static;
-        padding: var(--spacing-sm) 0;
+        padding: var(--spacing-xs) 0;
+        height: 56px; /* Even more compact on mobile */
+        min-height: 56px;
     }
     
     .nav-container {
         justify-content: center;
+        padding: 0 var(--spacing-xs);
+        gap: 2px; /* Minimal gap on mobile */
     }
     
     .nav-item {
-        min-width: 70px;
-        padding: var(--spacing-xs) var(--spacing-sm);
+        min-width: 48px; /* Very compact for mobile */
+        padding: var(--spacing-xs) 2px;
+        gap: 1px; /* Minimal gap between icon and text */
+    }
+    
+    .nav-icon {
+        font-size: var(--font-size-sm); /* Slightly smaller icons on mobile */
     }
     
     .nav-text {
-        font-size: var(--font-size-xs);
+        font-size: 10px; /* Very small text for mobile compactness */
+        line-height: 1;
     }
     
     .notebook-container {
@@ -1277,13 +1289,23 @@ body {
 }
 
 @media (max-width: 480px) {
+    .app-nav {
+        height: 52px; /* Ultra-compact on very small screens */
+        min-height: 52px;
+    }
+    
     .nav-item {
-        min-width: 60px;
-        padding: var(--spacing-xs) var(--spacing-sm);
+        min-width: 44px; /* Ultra-compact for very small screens */
+        padding: 2px 1px; /* Minimal padding */
+    }
+    
+    .nav-icon {
+        font-size: 12px; /* Smaller icons on very small screens */
     }
     
     .nav-text {
-        font-size: var(--font-size-xs);
+        font-size: 9px; /* Ultra-small text */
+        line-height: 1;
     }
     
     .timer-circle {

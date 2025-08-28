@@ -1,5 +1,6 @@
 {
   "name": "Productivity Suite",
+  "version": "1.0.0",
   "short_name": "Productivity Suite",
   "description": "A unified Progressive Web App combining note-taking and productivity tools with encrypted storage",
   "start_url": "./",
