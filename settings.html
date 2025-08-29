@@ -185,6 +185,7 @@
                 <p class="setting-description">Export and import all your productivity data from all tools</p>
                 <div class="setting-buttons">
                     <button id="export-btn" class="btn btn-secondary">📤 Export All Data</button>
+                    <button id="share-btn" class="btn btn-secondary" style="display: none;">📤 Share Data</button>
                     <button id="import-btn" class="btn btn-secondary">📥 Import Data</button>
                     <button id="preview-btn" class="btn btn-secondary">👀 Preview Data</button>
                 </div>
@@ -881,6 +882,9 @@
             
             // Update PWA status
             updatePWAStatus();
+            
+            // Update Web Share API button visibility
+            updateShareButtonVisibility();
         }
 
         async function updatePasswordStatus() {
@@ -1477,11 +1481,94 @@
             }
         }
 
+        // Web Share API Functions
+        function checkWebShareSupport() {
+            return navigator.share && navigator.canShare;
+        }
+
+        function updateShareButtonVisibility() {
+            const shareBtn = document.getElementById('share-btn');
+            if (checkWebShareSupport()) {
+                shareBtn.style.display = 'inline-block';
+            } else {
+                shareBtn.style.display = 'none';
+            }
+        }
+
+        async function shareAllData() {
+            try {
+                // First, generate the data (same as exportAllData)
+                const allData = {
+                    version: '1.0',
+                    timestamp: new Date().toISOString(),
+                    app: 'Productivity Suite',
+                    tools: {}
+                };
+
+                // Export data from all tools
+                const toolKeys = [
+                    { key: 'notebook-data', name: 'notebook' },
+                    { key: 'pomodoro-data', name: 'pomodoro' },
+                    { key: 'checklist-data', name: 'checklist' },
+                    { key: 'eisenhower-data', name: 'eisenhower' }
+                ];
+
+                for (const {key, name} of toolKeys) {
+                    try {
+                        const data = await storage.loadEncrypted(key);
+                        if (data) {
+                            allData.tools[name] = data;
+                        }
+                    } catch (error) {
+                        console.error(`Error exporting ${name}:`, error);
+                    }
+                }
+
+                // Create the file blob
+                const blob = new Blob([JSON.stringify(allData, null, 2)], { 
+                    type: 'application/json' 
+                });
+                
+                const fileName = `productivity-suite-backup-${new Date().toISOString().split('T')[0]}.json`;
+                
+                // Check if we can share files
+                if (navigator.canShare && navigator.canShare({ files: [blob] })) {
+                    // Share the file
+                    await navigator.share({
+                        title: 'Productivity Suite Data Export',
+                        text: 'My productivity data backup from Productivity Suite',
+                        files: [new File([blob], fileName, { type: 'application/json' })]
+                    });
+                    
+                    alert('✅ Data shared successfully!');
+                } else {
+                    // Fallback: share text content
+                    const dataText = JSON.stringify(allData, null, 2);
+                    await navigator.share({
+                        title: 'Productivity Suite Data Export',
+                        text: 'My productivity data backup from Productivity Suite',
+                        url: window.location.href
+                    });
+                    
+                    alert('✅ Data shared successfully! (Text format)');
+                }
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    // User cancelled the share
+                    console.log('Share was cancelled by user');
+                } else {
+                    console.error('Share failed:', error);
+                    alert('❌ Share failed: ' + error.message);
+                }
+            }
+        }
+
         // Event listeners
         document.getElementById('enable-password-btn').addEventListener('click', enablePasswordProtection);
         document.getElementById('change-password-btn').addEventListener('click', changePassword);
         document.getElementById('disable-password-btn').addEventListener('click', disablePasswordProtection);
         document.getElementById('export-btn').addEventListener('click', exportAllData);
+        document.getElementById('share-btn').addEventListener('click', shareAllData);
         document.getElementById('import-btn').addEventListener('click', importAllData);
         document.getElementById('preview-btn').addEventListener('click', previewData);
         document.getElementById('clear-btn').addEventListener('click', clearAllData);
@@ -1595,6 +1682,9 @@
          window.addEventListener('load', async () => {
              await initStorage();
              await initCloudStorage();
+             
+             // Check Web Share API support and update button visibility
+             updateShareButtonVisibility();
              
              // Setup update check functionality
              setupUpdateCheck();
