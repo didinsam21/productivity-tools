@@ -548,6 +548,24 @@ Built with vanilla HTML, CSS, and JavaScript for maximum compatibility and perfo
 let app;
 window.addEventListener('DOMContentLoaded', () => {
     app = new ProductivitySuite();
+    
+    // Listen for messages from background settings iframe
+    window.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'cloud-sync-status') {
+            updateBackgroundSyncStatus(event.data);
+        }
+    });
+    
+    function updateBackgroundSyncStatus(data) {
+        const statusElement = document.getElementById('status');
+        if (data.connected) {
+            statusElement.textContent = `☁️ Auto-sync: ${data.lastSync ? 'Last sync ' + new Date(data.lastSync).toLocaleTimeString() : 'Running...'}`;
+            statusElement.className = 'status cloud-sync';
+            statusElement.style.display = 'block';
+        } else {
+            statusElement.style.display = 'none';
+        }
+    }
 });
 
 // Make app globally available

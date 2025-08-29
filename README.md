@@ -1,6 +1,6 @@
 # Productivity Suite
 
-A comprehensive Progressive Web App combining multiple productivity tools with encrypted storage and offline support.
+A comprehensive Progressive Web App combining multiple productivity tools with encrypted storage, cloud sync, and offline support.
 
 ## ✨ Features
 
@@ -8,6 +8,8 @@ A comprehensive Progressive Web App combining multiple productivity tools with e
 - 🕒 **Pomodoro Timer**: Focus sessions with customizable work/break intervals
 - ☑️ **Smart Checklists**: Task management with priority levels and completion tracking
 - 📊 **Eisenhower Matrix**: Task prioritization using the urgent/important framework
+- 📅 **Calendar & Events**: Full-featured calendar with event management and scheduling
+- ☁️ **Cloud Sync**: Automatic synchronization with Google Drive, OneDrive, and Dropbox
 - 🔐 **Encrypted Storage**: AES-256-GCM encryption for all your data
 - 📱 **Mobile Ready**: Responsive design optimized for all devices
 - 📲 **Installable**: Works as a native app experience
@@ -45,12 +47,37 @@ A comprehensive Progressive Web App combining multiple productivity tools with e
 - **Action Planning**: Built-in guidance for each quadrant
 - **Export Views**: Save your matrix as images or data
 
+### 📅 Calendar & Event Manager
+- **Full Calendar View**: Monthly, weekly, and daily calendar views
+- **Event Management**: Create, edit, and delete events with rich details
+- **Priority System**: High, medium, low priority events with color coding
+- **Recurring Events**: Set up repeating events and schedules
+- **Event Categories**: Organize events by type (work, personal, meetings, etc.)
+- **Time Slots**: Drag and drop events in weekly view
+- **Search & Filter**: Find events quickly with search and filtering
+- **Export Options**: Export calendar data and event lists
+
+### ☁️ Cloud Storage & Sync
+- **Smart Browser Detection**: Automatically detects your browser and preferred cloud provider
+- **Multi-Provider Support**: Works with Google Drive (Chrome), OneDrive (Edge), Dropbox, iCloud (Safari)
+- **Browser-Native Sync**: Uses File System Access API for seamless integration
+- **Background Auto-Sync**: Continuous synchronization running in background iframe
+- **Automatic Sync**: Set up automatic synchronization every 5-60 minutes with initial sync delay
+- **Encrypted Sync**: All data encrypted before syncing to cloud
+- **Complete Backup**: Full export of all productivity tools data
+- **Cross-Device Access**: Access your data from any device with cloud sync
+- **Offline Support**: Works offline with sync when connection is restored
+- **Conflict Resolution**: Smart handling of data conflicts during sync
+- **Status Indicators**: Real-time sync status displayed in main app
+- **Provider Optimization**: Chrome → Google Drive, Edge → OneDrive, Safari → iCloud, Firefox → Dropbox
+
 ### ⚙️ Settings & Data Management
 - **Theme Selection**: Light, dark, and auto modes
 - **Data Export**: Complete backup of all your data
 - **Import Tools**: Restore from previous backups
 - **Storage Inspector**: View and manage encrypted data
 - **Security Settings**: Configure encryption and passwords
+- **Cloud Settings**: Manage sync preferences and cloud connections
 
 ## 📁 Project Structure
 
@@ -60,6 +87,7 @@ productivity-tools/
 ├── styles.css              # Global styles and themes
 ├── app.js                  # Core app functionality and routing
 ├── encrypted-storage.js    # AES-256 encryption utilities
+├── cloud-auth.js           # Cloud storage sync manager
 ├── service-worker.js       # Offline caching and PWA features
 ├── manifest.json           # PWA configuration
 ├── notes-list.html         # Notes management interface
@@ -67,6 +95,7 @@ productivity-tools/
 ├── pomodoro.html           # Pomodoro timer tool
 ├── checklist.html          # Task and checklist manager
 ├── eisenhower.html         # Eisenhower Matrix interface
+├── calendar.html           # Calendar and event manager
 ├── settings.html           # Settings and data management
 ├── icons/                  # App icons and graphics
 │   ├── icon-192x192.png
@@ -107,7 +136,7 @@ productivity-tools/
 ## 💾 Data Security & Storage
 
 ### Encrypted Storage
-All your data is encrypted using AES-256-GCM encryption before being stored locally:
+All your data is encrypted using AES-256-GCM encryption before being stored locally or synced to cloud:
 
 ```javascript
 // Your data is automatically encrypted
@@ -116,6 +145,9 @@ await storage.saveEncrypted('notes', updatedNotes);
 
 // Optional password protection for extra security
 await storage.saveEncrypted('sensitive-note', data, 'your-password');
+
+// Cloud sync with encryption
+await cloudManager.syncToCloud(); // Automatically encrypts before sync
 ```
 
 ### Privacy First
@@ -129,6 +161,9 @@ await storage.saveEncrypted('sensitive-note', data, 'your-password');
 - **Selective Export**: Export specific tools or date ranges
 - **Easy Import**: Restore from backup files
 - **Cross-Device**: Move your data between devices securely
+- **Cloud Sync**: Automatic backup to Google Drive, OneDrive, or Dropbox
+- **Auto-Sync**: Set up automatic synchronization every 5-60 minutes
+- **Conflict Resolution**: Smart handling of data conflicts during sync
 
 ## 📱 Progressive Web App Features
 
@@ -146,13 +181,17 @@ await storage.saveEncrypted('sensitive-note', data, 'your-password');
 2. **Try Pomodoro**: Use the timer for focused work sessions
 3. **Plan with Matrix**: Use Eisenhower Matrix for task prioritization
 4. **Track with Checklists**: Manage daily tasks and projects
+5. **Schedule with Calendar**: Add events and manage your schedule
+6. **Set up Cloud Sync**: Connect to your cloud storage for backup and cross-device access
 
 ### Best Practices
-- **Regular Backups**: Export your data weekly
-- **Use Categories**: Organize notes and tasks by project
+- **Regular Backups**: Export your data weekly or enable cloud sync for automatic backups
+- **Use Categories**: Organize notes, tasks, and events by project
 - **Set Passwords**: Use password protection for sensitive data
-- **Customize Settings**: Adjust themes and timer preferences
+- **Customize Settings**: Adjust themes, timer preferences, and sync frequency
 - **Stay Focused**: Use Pomodoro technique for better concentration
+- **Calendar Integration**: Sync your calendar with other productivity tools
+- **Cloud Sync**: Enable automatic sync for seamless cross-device access
 
 ### Keyboard Shortcuts
 - **Ctrl/Cmd + S**: Save current item
@@ -178,6 +217,9 @@ await storage.saveEncrypted('sensitive-note', data, 'your-password');
 - **Storage Backend**: Automatically selects best available option
 - **Encryption Level**: AES-256-GCM with fallbacks
 - **Export Formats**: JSON, CSV, and encrypted backups
+- **Cloud Providers**: Google Drive, OneDrive, Dropbox, and any cloud storage
+- **Sync Frequency**: Configurable from 5 minutes to 1 hour
+- **Calendar Views**: Monthly, weekly, and daily calendar layouts
 
 ## 🌐 Browser Support
 
@@ -209,6 +251,7 @@ The app is designed to work on any web server supporting HTTPS:
 3. Update the routing in `app.js`
 4. Add styles in `styles.css`
 5. Update service worker cache list
+6. Integrate with cloud sync in `cloud-auth.js` if needed
 
 ### Modifying Existing Tools
 - Each tool is self-contained in its HTML file

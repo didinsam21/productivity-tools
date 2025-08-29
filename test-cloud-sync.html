@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud Sync Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 3px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button { padding: 8px 16px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>🌐 Enhanced Cloud Sync Test</h1>
+    
+    <div class="test-section">
+        <h2>Browser Detection Test</h2>
+        <button onclick="testBrowserDetection()">Test Browser Detection</button>
+        <div id="browser-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Cloud Provider Detection Test</h2>
+        <button onclick="testCloudDetection()">Test Cloud Provider Detection</button>
+        <div id="cloud-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Cloud Sync Manager Test</h2>
+        <button onclick="testCloudManager()">Test Cloud Manager</button>
+        <div id="manager-result"></div>
+    </div>
+
+    <script src="encrypted-storage.js"></script>
+    <script src="cloud-auth.js"></script>
+    <script>
+        let cloudManager = null;
+
+        async function testBrowserDetection() {
+            const resultDiv = document.getElementById('browser-result');
+            resultDiv.innerHTML = '<div class="info">Testing browser detection...</div>';
+
+            try {
+                cloudManager = new CloudStorageManager();
+                const browserInfo = cloudManager.browserInfo;
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <strong>Browser Detection Results:</strong><br>
+                        Browser: ${browserInfo.browser}<br>
+                        Version: ${browserInfo.version}<br>
+                        User Agent: ${browserInfo.userAgent.substring(0, 100)}...
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function testCloudDetection() {
+            const resultDiv = document.getElementById('cloud-result');
+            resultDiv.innerHTML = '<div class="info">Testing cloud provider detection...</div>';
+
+            try {
+                if (!cloudManager) {
+                    cloudManager = new CloudStorageManager();
+                }
+
+                const detectedProvider = await cloudManager.detectCloudProvider();
+                const providers = await cloudManager.checkCloudSignIn();
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <strong>Cloud Detection Results:</strong><br>
+                        Detected Provider: ${detectedProvider || 'None'}<br>
+                        Available Providers: ${providers.join(', ') || 'None'}<br>
+                        Browser Priority: ${cloudManager.browserInfo.browser} → ${getPriorityProviders(cloudManager.browserInfo.browser)}
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        function getPriorityProviders(browser) {
+            const priorities = {
+                'chrome': 'Google Drive → Dropbox → OneDrive',
+                'edge': 'OneDrive → Google Drive → Dropbox',
+                'firefox': 'Dropbox → Google Drive → OneDrive',
+                'safari': 'iCloud → Dropbox → Google Drive → OneDrive'
+            };
+            return priorities[browser] || 'Google Drive → OneDrive → Dropbox';
+        }
+
+        async function testCloudManager() {
+            const resultDiv = document.getElementById('manager-result');
+            resultDiv.innerHTML = '<div class="info">Testing cloud manager initialization...</div>';
+
+            try {
+                if (!cloudManager) {
+                    cloudManager = new CloudStorageManager();
+                }
+
+                // Create a simple storage mock for testing
+                const mockStorage = {
+                    async loadEncrypted(key) {
+                        return null; // No existing settings
+                    },
+                    async saveEncrypted(key, data) {
+                        console.log('Saving:', key, data);
+                        return true;
+                    }
+                };
+
+                await cloudManager.initialize(mockStorage);
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <strong>Cloud Manager Test Results:</strong><br>
+                        Initialized: ✅<br>
+                        Browser: ${cloudManager.browserInfo.browser}<br>
+                        Detected Provider: ${cloudManager.detectedProvider || 'None'}<br>
+                        Connected: ${cloudManager.isConnected ? 'Yes' : 'No'}<br>
+                        Auto-Sync: ${cloudManager.autoSyncEnabled ? 'Enabled' : 'Disabled'}<br>
+                        Sync Frequency: ${cloudManager.syncFrequency} minutes
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        // Auto-run browser detection on page load
+        window.addEventListener('load', () => {
+            setTimeout(testBrowserDetection, 1000);
+        });
+    </script>
+</body>
+</html>

@@ -71,6 +71,15 @@
         <div id="status" class="status"></div>
     </div>
 
+    <!-- Background Settings Iframe for Auto-Sync -->
+    <iframe 
+        id="background-settings" 
+        src="settings.html" 
+        style="position: fixed; top: -9999px; left: -9999px; width: 1px; height: 1px; border: none; opacity: 0; pointer-events: none;"
+        title="Background Settings for Auto-Sync"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-modals"
+    ></iframe>
+
     <!-- Scripts -->
     <script src="encrypted-storage.js"></script>
     <script src="app.js"></script>

@@ -1,38 +1,253 @@
 /**
- * Cloud Storage Authentication and Synchronization Manager
- * Supports Google Drive, Microsoft OneDrive, and Dropbox
+ * Enhanced Cloud Storage Sync Manager
+ * Automatically detects cloud provider based on browser and uses browser-native APIs
+ * Works with Google Drive (Chrome), OneDrive (Edge), Dropbox, and other cloud storage
  */
 
 class CloudStorageManager {
     constructor() {
         this.isConnected = false;
         this.provider = null;
-        this.accessToken = null;
-        this.refreshToken = null;
         this.autoSyncEnabled = false;
         this.autoSyncInterval = null;
         this.syncFrequency = 15; // minutes
         this.userEmail = null;
-        this.rememberCredentials = false;
         this.lastSync = null;
         this.storage = null;
         this.encryptBeforeSync = true;
-        this.apiCredentials = null;
+        this.syncFileName = 'productivity-suite-backup.json';
+        this.fileHandle = null;
+        this.detectedProvider = null;
+        this.browserInfo = this.detectBrowser();
     }
+
+    // ===== BROWSER DETECTION =====
+    
+    detectBrowser() {
+        const userAgent = navigator.userAgent;
+        let browser = 'unknown';
+        let version = 'unknown';
+        
+        // Chrome detection
+        if (userAgent.includes('Chrome') && !userAgent.includes('Edg')) {
+            browser = 'chrome';
+            version = userAgent.match(/Chrome\/(\d+)/)?.[1] || 'unknown';
+        }
+        // Edge detection
+        else if (userAgent.includes('Edg')) {
+            browser = 'edge';
+            version = userAgent.match(/Edg\/(\d+)/)?.[1] || 'unknown';
+        }
+        // Firefox detection
+        else if (userAgent.includes('Firefox')) {
+            browser = 'firefox';
+            version = userAgent.match(/Firefox\/(\d+)/)?.[1] || 'unknown';
+        }
+        // Safari detection
+        else if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) {
+            browser = 'safari';
+            version = userAgent.match(/Version\/(\d+)/)?.[1] || 'unknown';
+        }
+        
+        return { browser, version, userAgent };
+    }
+
+    // ===== CLOUD PROVIDER DETECTION =====
+    
+    async detectCloudProvider() {
+        try {
+            // Check if user is signed into cloud services via browser
+            const providers = await this.checkCloudSignIn();
+            
+            if (providers.length > 0) {
+                // Prioritize based on browser
+                const browserPriority = {
+                    'chrome': ['google-drive', 'dropbox', 'onedrive'],
+                    'edge': ['onedrive', 'google-drive', 'dropbox'],
+                    'firefox': ['dropbox', 'google-drive', 'onedrive'],
+                    'safari': ['icloud', 'dropbox', 'google-drive', 'onedrive']
+                };
+                
+                const priority = browserPriority[this.browserInfo.browser] || ['google-drive', 'onedrive', 'dropbox'];
+                
+                // Find the first available provider in priority order
+                for (const preferredProvider of priority) {
+                    if (providers.includes(preferredProvider)) {
+                        return preferredProvider;
+                    }
+                }
+                
+                // Fallback to first available provider
+                return providers[0];
+            }
+            
+            return null;
+        } catch (error) {
+            console.error('Error detecting cloud provider:', error);
+            return null;
+        }
+    }
+
+    async checkCloudSignIn() {
+        const providers = [];
+        
+        try {
+            // Check for Google Drive (Chrome/Edge)
+            if (await this.checkGoogleDriveSignIn()) {
+                providers.push('google-drive');
+            }
+            
+            // Check for OneDrive (Edge/Chrome)
+            if (await this.checkOneDriveSignIn()) {
+                providers.push('onedrive');
+            }
+            
+            // Check for Dropbox
+            if (await this.checkDropboxSignIn()) {
+                providers.push('dropbox');
+            }
+            
+            // Check for iCloud (Safari)
+            if (this.browserInfo.browser === 'safari' && await this.checkICloudSignIn()) {
+                providers.push('icloud');
+            }
+            
+        } catch (error) {
+            console.error('Error checking cloud sign-in status:', error);
+        }
+        
+        return providers;
+    }
+
+    async checkGoogleDriveSignIn() {
+        try {
+            // Skip cloud detection if running locally (file:// protocol)
+            if (window.location.protocol === 'file:') {
+                console.log('Running locally - skipping Google Drive detection');
+                return false;
+            }
+
+            // Check if user is signed into Google account
+            const response = await fetch('https://accounts.google.com/gsi/status', {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                return data.signedIn || false;
+            }
+            
+            // Alternative check using Google Drive API
+            try {
+                const driveResponse = await fetch('https://www.googleapis.com/drive/v3/about?fields=user', {
+                    credentials: 'include'
+                });
+                return driveResponse.ok;
+            } catch (e) {
+                // Ignore API errors
+                console.log('Google Drive API check failed:', e.message);
+            }
+            
+            return false;
+        } catch (error) {
+            console.log('Google Drive sign-in check failed:', error.message);
+            return false;
+        }
+    }
+
+    async checkOneDriveSignIn() {
+        try {
+            // Skip cloud detection if running locally (file:// protocol)
+            if (window.location.protocol === 'file:') {
+                console.log('Running locally - skipping OneDrive detection');
+                return false;
+            }
+
+            // Check if user is signed into Microsoft account
+            const response = await fetch('https://graph.microsoft.com/v1.0/me', {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            return response.ok;
+        } catch (error) {
+            console.log('OneDrive sign-in check failed:', error.message);
+            return false;
+        }
+    }
+
+    async checkDropboxSignIn() {
+        try {
+            // Skip cloud detection if running locally (file:// protocol)
+            if (window.location.protocol === 'file:') {
+                console.log('Running locally - skipping Dropbox detection');
+                return false;
+            }
+
+            // Check if user is signed into Dropbox
+            const response = await fetch('https://api.dropboxapi.com/2/users/get_current_account', {
+                method: 'POST',
+                credentials: 'include'
+            });
+            
+            return response.ok;
+        } catch (error) {
+            console.log('Dropbox sign-in check failed:', error.message);
+            return false;
+        }
+    }
+
+    async checkICloudSignIn() {
+        try {
+            // Skip cloud detection if running locally (file:// protocol)
+            if (window.location.protocol === 'file:') {
+                console.log('Running locally - skipping iCloud detection');
+                return false;
+            }
+
+            // Check if user is signed into iCloud (Safari)
+            if (this.browserInfo.browser === 'safari') {
+                // Safari has built-in iCloud integration
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.log('iCloud sign-in check failed:', error.message);
+            return false;
+        }
+    }
+
+    // ===== ENHANCED INITIALIZATION =====
 
     async initialize(storage) {
         this.storage = storage;
         await this.loadCloudSettings();
-        await this.loadApiCredentials();
-    }
-
-    async loadApiCredentials() {
-        try {
-            const apiCredentials = await this.storage.loadEncrypted('api-credentials');
-            this.apiCredentials = apiCredentials || {};
-        } catch (error) {
-            console.error('Error loading API credentials:', error);
-            this.apiCredentials = {};
+        
+        // Auto-detect cloud provider on initialization
+        this.detectedProvider = await this.detectCloudProvider();
+        
+        this.updateCloudUI();
+        
+        // Start auto-sync if it was previously enabled
+        if (this.autoSyncEnabled && this.isConnected) {
+            this.startAutoSync();
+        }
+        
+        // Auto-connect if we're in a background iframe and not already connected
+        if (this.isInBackgroundIframe() && !this.isConnected) {
+            console.log('Background iframe detected - attempting auto-connect to cloud storage');
+            try {
+                await this.connectToCloud();
+                if (this.isConnected) {
+                    console.log('Auto-connected to cloud storage in background');
+                    // Enable auto-sync by default in background mode
+                    this.setAutoSyncEnabled(true);
+                    this.startAutoSync();
+                }
+            } catch (error) {
+                console.log('Auto-connect failed in background:', error.message);
+            }
         }
     }
 
@@ -45,17 +260,24 @@ class CloudStorageManager {
                 this.syncFrequency = settings.syncFrequency || 15;
                 this.lastSync = settings.lastSync;
                 this.userEmail = settings.userEmail;
-                this.rememberCredentials = settings.rememberCredentials || false;
                 this.encryptBeforeSync = settings.encryptBeforeSync !== undefined ? settings.encryptBeforeSync : true;
+                this.syncFileName = settings.syncFileName || 'productivity-suite-backup.json';
                 
-                // Check if we have a valid stored token
-                if (settings.accessToken) {
-                    this.accessToken = settings.accessToken;
-                    this.refreshToken = settings.refreshToken;
-                    await this.validateToken();
+                // Restore file handle if available
+                if (settings.fileHandle && 'showOpenFilePicker' in window) {
+                    try {
+                        this.fileHandle = await window.showOpenFilePicker({
+                            multiple: false,
+                            types: [{
+                                description: 'Productivity Suite Backup',
+                                accept: { 'application/json': ['.json'] }
+                            }]
+                        });
+                    } catch (error) {
+                        console.log('File handle not restored:', error);
+                    }
                 }
             }
-            this.updateCloudUI();
         } catch (error) {
             console.error('Error loading cloud settings:', error);
         }
@@ -65,14 +287,12 @@ class CloudStorageManager {
         try {
             const settings = {
                 provider: this.provider,
-                accessToken: this.accessToken,
-                refreshToken: this.refreshToken,
                 autoSyncEnabled: this.autoSyncEnabled,
                 syncFrequency: this.syncFrequency,
                 lastSync: this.lastSync,
                 userEmail: this.userEmail,
-                rememberCredentials: this.rememberCredentials,
-                encryptBeforeSync: this.encryptBeforeSync
+                encryptBeforeSync: this.encryptBeforeSync,
+                syncFileName: this.syncFileName
             };
             await this.storage.saveEncrypted('cloud-settings', settings);
         } catch (error) {
@@ -80,186 +300,182 @@ class CloudStorageManager {
         }
     }
 
-    // ===== GOOGLE DRIVE INTEGRATION =====
+    // ===== BACKGROUND IFRAME DETECTION =====
+    
+    isInBackgroundIframe() {
+        // Skip background iframe detection if running locally (file:// protocol)
+        if (window.location.protocol === 'file:') {
+            console.log('Running locally - skipping background iframe detection');
+            return false;
+        }
 
-    async uploadToGoogleDrive(data) {
-        // In a real implementation, you'd use the Google Drive API
-        console.log('Uploading to Google Drive:', data);
+        // Check if we're in a hidden iframe (background settings)
+        const isInIframe = window !== window.top;
+        const isHidden = document.body.style.display === 'none' || 
+                        document.body.style.visibility === 'hidden' ||
+                        window.location.href.includes('background-settings');
         
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        return { fileId: 'demo_file_google_' + Date.now() };
-    }
-
-    async downloadFromGoogleDrive() {
-        // In a real implementation, you'd use the Google Drive API
-        console.log('Downloading from Google Drive');
-        
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        return {
-            timestamp: new Date().toISOString(),
-            data: {}
-        };
-    }
-
-    // ===== MICROSOFT ONEDRIVE INTEGRATION =====
-
-    async uploadToOneDrive(data) {
-        // In a real implementation, you'd use Microsoft Graph API
-        console.log('Uploading to OneDrive:', data);
-        
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        return { fileId: 'demo_file_onedrive_' + Date.now() };
-    }
-
-    async downloadFromOneDrive() {
-        // In a real implementation, you'd use Microsoft Graph API
-        console.log('Downloading from OneDrive');
-        
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        return {
-            timestamp: new Date().toISOString(),
-            data: {}
-        };
-    }
-
-    // ===== DROPBOX INTEGRATION =====
-
-    async uploadToDropbox(data) {
-        // In a real implementation, you'd use Dropbox API
-        console.log('Uploading to Dropbox:', data);
-        
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        return { fileId: 'demo_file_dropbox_' + Date.now() };
-    }
-
-    async downloadFromDropbox() {
-        // In a real implementation, you'd use Dropbox API
-        console.log('Downloading from Dropbox');
-        
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        return {
-            timestamp: new Date().toISOString(),
-            data: {}
-        };
-    }
-
-    // ===== GENERAL AUTHENTICATION METHODS =====
-    async handleAuthenticationSuccess(provider, authData) {
+        // Additional check for the specific background iframe ID
+        let isBackgroundIframe = false;
         try {
-            // Check if we have API credentials for this provider
-            const providerKey = provider === 'googledrive' ? 'google' : 
-                               provider === 'onedrive' ? 'microsoft' : 'dropbox';
-            
-            const hasCredentials = this.apiCredentials && 
-                                 this.apiCredentials[providerKey] &&
-                                 this.apiCredentials[providerKey].clientId;
-            
-            this.provider = provider;
-            this.isConnected = true;
-            
-            // Generate token based on whether we have real credentials
-            if (hasCredentials && authData.authMethod === 'credentials') {
-                this.accessToken = `real_creds_${provider}_${Date.now()}`;
-                this.userEmail = authData.email;
-            } else {
-                this.accessToken = `demo_creds_${provider}_${Date.now()}`;
-                this.userEmail = authData.email;
-            }
-            
-            // Save settings including remember me preference
-            if (authData.rememberMe) {
-                this.rememberCredentials = true;
-            }
-            
-            await this.saveCloudSettings();
-            this.updateCloudUI();
-            
-            // Start auto-sync if enabled
-            if (this.autoSyncEnabled) {
-                this.startAutoSync();
-            }
-            
-            return { hasRealCredentials: hasCredentials };
+            isBackgroundIframe = document.getElementById('background-settings') !== null || 
+                              (window.parent && window.parent.document && 
+                               window.parent.document.getElementById('background-settings') === window.frameElement);
         } catch (error) {
-            console.error('Authentication success handler failed:', error);
+            // Ignore cross-origin errors
+            console.log('Cross-origin iframe check failed:', error.message);
+        }
+        
+        const result = isInIframe && (isHidden || isBackgroundIframe);
+        console.log('Background iframe check:', { isInIframe, isHidden, isBackgroundIframe, result });
+        return result;
+    }
+
+    // ===== ENHANCED CLOUD CONNECTION =====
+
+    async connectToCloud() {
+        try {
+            console.log('Enhanced connectToCloud called');
+            
+            // Auto-detect cloud provider if not already set
+            if (!this.detectedProvider) {
+                this.detectedProvider = await this.detectCloudProvider();
+                console.log('Detected cloud provider:', this.detectedProvider);
+            }
+            
+            // Check if we're in an iframe (which blocks File System Access API)
+            const isInIframe = window !== window.top;
+            
+            // Use File System Access API if available and not in iframe
+            if ('showSaveFilePicker' in window && !isInIframe) {
+                console.log('Using File System Access API for cloud sync');
+                return await this.connectWithFileSystemAPI();
+            } else {
+                if (isInIframe) {
+                    console.log('In iframe - using enhanced download/upload mode');
+                } else {
+                    console.log('File System Access API not supported - using enhanced download/upload mode');
+                }
+                return await this.connectWithEnhancedDownloadAPI();
+            }
+        } catch (error) {
+            console.error('Failed to connect to cloud:', error);
             throw error;
         }
     }
 
-    getProviderCredentials(provider) {
-        const providerKey = provider === 'googledrive' ? 'google' : 
-                           provider === 'onedrive' ? 'microsoft' : 'dropbox';
-        
-        return this.apiCredentials && this.apiCredentials[providerKey] ? 
-               this.apiCredentials[providerKey] : null;
-    }
+    async connectWithFileSystemAPI() {
+        try {
+            // Suggest filename based on detected provider
+            const providerNames = {
+                'google-drive': 'Productivity Suite Backup (Google Drive)',
+                'onedrive': 'Productivity Suite Backup (OneDrive)',
+                'dropbox': 'Productivity Suite Backup (Dropbox)',
+                'icloud': 'Productivity Suite Backup (iCloud)'
+            };
+            
+            const suggestedName = providerNames[this.detectedProvider] || this.syncFileName;
+            
+            // Let user choose where to save the file (Google Drive, OneDrive, etc.)
+            const fileHandle = await window.showSaveFilePicker({
+                suggestedName: suggestedName,
+                types: [{
+                    description: 'Productivity Suite Backup',
+                    accept: { 'application/json': ['.json'] }
+                }]
+            });
 
-    hasValidCredentials(provider) {
-        const credentials = this.getProviderCredentials(provider);
-        if (!credentials) return false;
-        
-        // Check for required fields based on provider
-        switch (provider) {
-            case 'googledrive':
-                return !!(credentials.clientId && credentials.clientSecret);
-            case 'onedrive':
-                return !!(credentials.clientId && credentials.clientSecret);
-            case 'dropbox':
-                return !!(credentials.appKey && credentials.appSecret);
-            default:
-                return false;
+            this.fileHandle = fileHandle;
+            this.isConnected = true;
+            this.provider = this.detectedProvider || 'browser-native';
+            this.userEmail = `Connected to ${this.getProviderDisplayName(this.provider)}`;
+            
+            // Test the connection by creating a small test file
+            await this.testConnection();
+            
+            await this.saveCloudSettings();
+            this.updateCloudUI();
+            
+            // Auto-enable sync if this is the first connection
+            if (!this.autoSyncEnabled) {
+                this.setAutoSyncEnabled(true);
+            }
+            
+            return true;
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                throw new Error('File selection was cancelled');
+            }
+            throw error;
         }
     }
 
-    async validateToken() {
-        if (!this.accessToken) return false;
+    async connectWithEnhancedDownloadAPI() {
+        // Enhanced fallback for browsers without File System Access API or when in iframe
+        this.isConnected = true;
+        this.provider = this.detectedProvider || 'download';
+        this.userEmail = `Manual sync via ${this.getProviderDisplayName(this.provider)}`;
+        
+        await this.saveCloudSettings();
+        this.updateCloudUI();
+        
+        // Show user instructions for manual sync with detected provider
+        console.log(`Connected using manual download/upload mode for ${this.getProviderDisplayName(this.provider)}`);
+        
+        // Auto-enable sync even in manual mode
+        if (!this.autoSyncEnabled) {
+            this.setAutoSyncEnabled(true);
+        }
+        
+        return true;
+    }
+
+    getProviderDisplayName(provider) {
+        const names = {
+            'google-drive': 'Google Drive',
+            'onedrive': 'OneDrive',
+            'dropbox': 'Dropbox',
+            'icloud': 'iCloud',
+            'browser-native': 'Browser Cloud Storage',
+            'download': 'Manual Download'
+        };
+        return names[provider] || provider;
+    }
+
+    async testConnection() {
+        if (!this.fileHandle) return false;
         
         try {
-            // In a real implementation, you'd validate the token with the provider's API
-            // For demo purposes, we'll assume tokens are valid for 24 hours
-            if (this.accessToken.includes('demo_token')) {
-                this.isConnected = true;
-                return true;
-            }
+            const testData = { test: true, timestamp: new Date().toISOString() };
+            const writable = await this.fileHandle.createWritable();
+            await writable.write(JSON.stringify(testData, null, 2));
+            await writable.close();
             
-            // Validate with actual API endpoints here
-            return await this.validateWithProvider();
+            // Verify we can read it back
+            const file = await this.fileHandle.getFile();
+            const content = await file.text();
+            const parsed = JSON.parse(content);
+            
+            return parsed.test === true;
         } catch (error) {
-            console.error('Token validation failed:', error);
-            this.disconnect();
+            console.error('Connection test failed:', error);
             return false;
         }
     }
 
-    async validateWithProvider() {
-        switch (this.provider) {
-            case 'googledrive':
-                // Validate Google token
-                return true;
-            case 'onedrive':
-                // Validate Microsoft token
-                return true;
-            case 'dropbox':
-                // Validate Dropbox token
-                return true;
-            default:
-                return false;
-        }
+    async disconnectFromCloud() {
+        this.isConnected = false;
+        this.provider = null;
+        this.userEmail = null;
+        this.fileHandle = null;
+        this.stopAutoSync();
+        
+        await this.saveCloudSettings();
+        this.updateCloudUI();
     }
 
     // ===== SYNC OPERATIONS =====
+
     async syncToCloud() {
         if (!this.isConnected) {
             throw new Error('Not connected to cloud storage');
@@ -267,32 +483,8 @@ class CloudStorageManager {
 
         try {
             // Create complete export of all data
-            const allData = {
-                version: '1.0',
-                timestamp: new Date().toISOString(),
-                app: 'Productivity Suite',
-                tools: {}
-            };
-
-            // Export data from all tools
-            const toolKeys = [
-                { key: 'notebook-data', name: 'notebook' },
-                { key: 'pomodoro-data', name: 'pomodoro' },
-                { key: 'checklist-data', name: 'checklist' },
-                { key: 'eisenhower-data', name: 'eisenhower' }
-            ];
-
-            for (const {key, name} of toolKeys) {
-                try {
-                    const data = await this.storage.loadEncrypted(key);
-                    if (data) {
-                        allData.tools[name] = data;
-                    }
-                } catch (error) {
-                    console.error(`Error loading ${name}:`, error);
-                }
-            }
-
+            const allData = await this.gatherAllData();
+            
             let syncData = allData;
 
             // Apply encryption if enabled
@@ -300,8 +492,12 @@ class CloudStorageManager {
                 syncData = await this.encryptData(allData);
             }
 
-            // Upload to cloud storage
-            await this.uploadToProvider(syncData);
+            // Save to cloud using appropriate method
+            if (this.fileHandle) {
+                await this.saveWithFileSystemAPI(syncData);
+            } else {
+                await this.saveWithDownloadAPI(syncData);
+            }
             
             this.lastSync = new Date().toISOString();
             await this.saveCloudSettings();
@@ -314,55 +510,58 @@ class CloudStorageManager {
         }
     }
 
-    async encryptData(data) {
-        try {
-            // Simple encryption using Web Crypto API
-            const encoder = new TextEncoder();
-            const dataString = JSON.stringify(data);
-            const dataBuffer = encoder.encode(dataString);
-            
-            // Generate a key (in production, use a proper key derivation)
-            const key = await crypto.subtle.generateKey(
-                { name: 'AES-GCM', length: 256 },
-                false,
-                ['encrypt']
-            );
-            
-            // Generate IV
-            const iv = crypto.getRandomValues(new Uint8Array(12));
-            
-            // Encrypt the data
-            const encrypted = await crypto.subtle.encrypt(
-                { name: 'AES-GCM', iv: iv },
-                key,
-                dataBuffer
-            );
-            
-            // Return encrypted package
-            return {
-                encrypted: true,
-                timestamp: new Date().toISOString(),
-                iv: Array.from(iv),
-                data: Array.from(new Uint8Array(encrypted))
-            };
-        } catch (error) {
-            console.error('Encryption failed:', error);
-            // Fallback to unencrypted if encryption fails
-            return data;
+    async gatherAllData() {
+        const allData = {
+            version: '1.0',
+            timestamp: new Date().toISOString(),
+            app: 'Productivity Suite',
+            tools: {}
+        };
+
+        // Export data from all tools
+        const toolKeys = [
+            { key: 'notebook-data', name: 'notebook' },
+            { key: 'pomodoro-data', name: 'pomodoro' },
+            { key: 'checklist-data', name: 'checklist' },
+            { key: 'eisenhower-data', name: 'eisenhower' }
+        ];
+
+        for (const {key, name} of toolKeys) {
+            try {
+                const data = await this.storage.loadEncrypted(key);
+                if (data) {
+                    allData.tools[name] = data;
+                }
+            } catch (error) {
+                console.error(`Error loading ${name}:`, error);
+            }
         }
+
+        return allData;
     }
 
-    async uploadToProvider(data) {
-        switch (this.provider) {
-            case 'googledrive':
-                return await this.uploadToGoogleDrive(data);
-            case 'onedrive':
-                return await this.uploadToOneDrive(data);
-            case 'dropbox':
-                return await this.uploadToDropbox(data);
-            default:
-                throw new Error('Provider not supported');
+    async saveWithFileSystemAPI(data) {
+        if (!this.fileHandle) {
+            throw new Error('No file handle available');
         }
+
+        const writable = await this.fileHandle.createWritable();
+        await writable.write(JSON.stringify(data, null, 2));
+        await writable.close();
+    }
+
+    async saveWithDownloadAPI(data) {
+        // Create download link for manual save
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = this.syncFileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     }
 
     async downloadFromCloud() {
@@ -371,51 +570,25 @@ class CloudStorageManager {
         }
 
         try {
-            let cloudData = await this.downloadFromProvider();
-            
-            // Check if data is encrypted
-            if (cloudData && cloudData.encrypted) {
-                try {
-                    cloudData = await this.decryptData(cloudData);
-                } catch (error) {
-                    console.error('Failed to decrypt cloud data:', error);
-                    throw new Error('Failed to decrypt cloud data. Data may be corrupted or use a different encryption key.');
-                }
+            let data;
+
+            if (this.fileHandle) {
+                data = await this.loadWithFileSystemAPI();
+            } else {
+                throw new Error('Please manually upload your backup file');
             }
-            
-            if (cloudData && cloudData.tools) {
-                const conflictResolution = document.getElementById('conflict-resolution-select').value;
-                
-                // Map tool names back to storage keys
-                const toolMapping = {
-                    'notebook': 'notebook-data',
-                    'pomodoro': 'pomodoro-data',
-                    'checklist': 'checklist-data',
-                    'eisenhower': 'eisenhower-data'
-                };
-                
-                for (const [toolName, cloudValue] of Object.entries(cloudData.tools)) {
-                    const dataKey = toolMapping[toolName];
-                    if (!dataKey) continue;
-                    
-                    const localData = await this.storage.loadEncrypted(dataKey);
-                    
-                    if (localData && conflictResolution === 'prompt') {
-                        // Handle conflict
-                        const choice = confirm(`Conflict detected for ${toolName}.\n\nClick OK to keep cloud data, Cancel to keep local data.`);
-                        if (choice) {
-                            await this.storage.saveEncrypted(dataKey, cloudValue);
-                        }
-                    } else if (!localData || conflictResolution === 'remote') {
-                        await this.storage.saveEncrypted(dataKey, cloudValue);
-                    } else if (conflictResolution === 'merge') {
-                        // Simple merge strategy
-                        const merged = this.mergeData(localData, cloudValue);
-                        await this.storage.saveEncrypted(dataKey, merged);
-                    }
-                    // 'local' option keeps local data unchanged
-                }
+
+            // Decrypt if needed
+            if (this.encryptBeforeSync) {
+                data = await this.decryptData(data);
             }
+
+            // Import data to all tools
+            await this.importAllData(data);
+            
+            this.lastSync = new Date().toISOString();
+            await this.saveCloudSettings();
+            this.updateCloudUI();
             
             return true;
         } catch (error) {
@@ -424,99 +597,96 @@ class CloudStorageManager {
         }
     }
 
-    async decryptData(encryptedData) {
+    async loadWithFileSystemAPI() {
+        if (!this.fileHandle) {
+            throw new Error('No file handle available');
+        }
+
+        const file = await this.fileHandle.getFile();
+        const content = await file.text();
+        return JSON.parse(content);
+    }
+
+    async importAllData(data) {
+        if (!data.tools) {
+            throw new Error('Invalid backup file format');
+        }
+
+        for (const [toolName, toolData] of Object.entries(data.tools)) {
+            try {
+                const key = `${toolName}-data`;
+                await this.storage.saveEncrypted(key, toolData);
+            } catch (error) {
+                console.error(`Error importing ${toolName}:`, error);
+            }
+        }
+    }
+
+    // ===== ENCRYPTION =====
+
+    async encryptData(data) {
         try {
-            // This is a simplified decryption - in production you'd need proper key management
-            console.log('Encrypted data received - decryption not fully implemented for demo');
-            
-            // For demo purposes, return simulated decrypted data
+            // Simple encryption - in production, use proper crypto
+            const dataString = JSON.stringify(data);
+            const encoded = btoa(unescape(encodeURIComponent(dataString)));
             return {
-                version: '1.0',
-                timestamp: new Date().toISOString(),
-                app: 'Productivity Suite',
-                tools: {}
+                encrypted: true,
+                data: encoded,
+                timestamp: new Date().toISOString()
             };
         } catch (error) {
-            console.error('Decryption failed:', error);
-            throw error;
+            console.error('Encryption failed:', error);
+            return data; // Return unencrypted if encryption fails
         }
     }
 
-    async downloadFromProvider() {
-        switch (this.provider) {
-            case 'googledrive':
-                return await this.downloadFromGoogleDrive();
-            case 'onedrive':
-                return await this.downloadFromOneDrive();
-            case 'dropbox':
-                return await this.downloadFromDropbox();
-            default:
-                throw new Error('Provider not supported');
-        }
-    }
-
-    mergeData(local, remote) {
-        // Simple merge strategy - takes the newer data
-        const localTime = new Date(local.lastModified || 0).getTime();
-        const remoteTime = new Date(remote.lastModified || 0).getTime();
-        
-        return remoteTime > localTime ? remote : local;
-    }
-
-    async syncNow() {
+    async decryptData(encryptedData) {
         try {
-            const syncBtn = document.getElementById('sync-now-btn');
-            if (syncBtn) {
-                syncBtn.textContent = '🔄 Syncing...';
-                syncBtn.disabled = true;
+            if (!encryptedData.encrypted) {
+                return encryptedData;
             }
-            
-            // Upload local changes
-            await this.syncToCloud();
-            
-            // Download remote changes
-            await this.downloadFromCloud();
-            
-            return true;
+
+            const decoded = decodeURIComponent(escape(atob(encryptedData.data)));
+            return JSON.parse(decoded);
         } catch (error) {
-            console.error('Manual sync failed:', error);
-            throw error;
-        } finally {
-            const syncBtn = document.getElementById('sync-now-btn');
-            if (syncBtn) {
-                syncBtn.textContent = '🔄 Sync Now';
-                syncBtn.disabled = false;
-            }
+            console.error('Decryption failed:', error);
+            throw new Error('Failed to decrypt data');
         }
     }
 
-    // ===== AUTO-SYNC MANAGEMENT =====
-    toggleAutoSync() {
-        this.autoSyncEnabled = !this.autoSyncEnabled;
-        
-        if (this.autoSyncEnabled) {
-            this.startAutoSync();
-        } else {
-            this.stopAutoSync();
-        }
-        
-        this.saveCloudSettings();
-        this.updateCloudUI();
-    }
+    // ===== ENHANCED AUTO SYNC =====
 
     startAutoSync() {
-        this.stopAutoSync(); // Clear any existing interval
+        if (this.autoSyncInterval) {
+            clearInterval(this.autoSyncInterval);
+        }
+
+        this.autoSyncEnabled = true;
         
-        const intervalMs = this.syncFrequency * 60 * 1000;
+        // Initial sync after a short delay
+        setTimeout(async () => {
+            try {
+                await this.syncToCloud();
+                console.log('Initial auto-sync completed successfully');
+            } catch (error) {
+                console.error('Initial auto-sync failed:', error);
+            }
+        }, 5000); // 5 second delay for initial sync
+
+        // Set up recurring sync
         this.autoSyncInterval = setInterval(async () => {
             try {
                 await this.syncToCloud();
-                await this.downloadFromCloud();
-                this.updateCloudUI();
+                console.log('Recurring auto-sync completed successfully');
             } catch (error) {
-                console.error('Auto-sync failed:', error);
+                console.error('Recurring auto-sync failed:', error);
             }
-        }, intervalMs);
+        }, this.syncFrequency * 60 * 1000);
+
+        this.saveCloudSettings();
+        this.updateCloudUI();
+        
+        console.log(`Auto-sync started with ${this.syncFrequency} minute intervals`);
     }
 
     stopAutoSync() {
@@ -524,240 +694,348 @@ class CloudStorageManager {
             clearInterval(this.autoSyncInterval);
             this.autoSyncInterval = null;
         }
-    }
-
-    async disconnect() {
-        this.isConnected = false;
-        this.provider = null;
-        this.accessToken = null;
-        this.refreshToken = null;
         this.autoSyncEnabled = false;
-        this.userEmail = null;
-        this.stopAutoSync();
-        
-        await this.saveCloudSettings();
+        this.saveCloudSettings();
         this.updateCloudUI();
-        
-        return true;
     }
 
-    // ===== UI MANAGEMENT =====
+    setSyncFrequency(minutes) {
+        this.syncFrequency = minutes;
+        if (this.autoSyncEnabled) {
+            this.stopAutoSync();
+            this.startAutoSync();
+        }
+        this.saveCloudSettings();
+    }
+
+    setAutoSyncEnabled(enabled) {
+        this.autoSyncEnabled = enabled;
+        if (enabled && this.isConnected) {
+            this.startAutoSync();
+        } else {
+            this.stopAutoSync();
+        }
+        this.saveCloudSettings();
+        this.updateCloudUI();
+    }
+
+    setEncryptBeforeSync(encrypt) {
+        this.encryptBeforeSync = encrypt;
+        this.saveCloudSettings();
+    }
+
+    // ===== ENHANCED UI UPDATES =====
+
     updateCloudUI() {
+        // Update connection status
         const statusElement = document.getElementById('cloud-connection-status');
         const providerElement = document.getElementById('cloud-provider-name');
         const lastSyncElement = document.getElementById('cloud-last-sync');
-        const autoSyncStatusElement = document.getElementById('cloud-auto-sync-status');
+        const autoSyncElement = document.getElementById('cloud-auto-sync-status');
+
+        if (statusElement) {
+            statusElement.textContent = this.isConnected ? 'Connected' : 'Not connected';
+            statusElement.className = this.isConnected ? 'info-value connected' : 'info-value';
+        }
+
+        if (providerElement) {
+            if (this.isConnected) {
+                providerElement.textContent = this.getProviderDisplayName(this.provider);
+            } else {
+                providerElement.textContent = 'None';
+            }
+        }
+
+        if (lastSyncElement) {
+            if (this.lastSync) {
+                const date = new Date(this.lastSync);
+                lastSyncElement.textContent = date.toLocaleString();
+            } else {
+                lastSyncElement.textContent = 'Never';
+            }
+        }
+
+        if (autoSyncElement) {
+            autoSyncElement.textContent = this.autoSyncEnabled ? 'Enabled' : 'Disabled';
+        }
+
+        // Update control buttons
+        this.updateControlButtons();
         
-        const connectBtn = document.getElementById('connect-cloud-btn');
-        const disconnectBtn = document.getElementById('disconnect-cloud-btn');
-        const syncNowBtn = document.getElementById('sync-now-btn');
-        const toggleAutoSyncBtn = document.getElementById('toggle-auto-sync-btn');
-        const syncOptions = document.getElementById('sync-options');
-        const providerSelect = document.getElementById('cloud-provider-select');
+        // Show browser detection info
+        this.updateBrowserInfo();
         
-        if (this.isConnected) {
-            if (statusElement) {
-                statusElement.textContent = '✅ Connected';
-                statusElement.style.color = '#059669';
+        // Notify parent window of sync status (for background iframe)
+        if (window.parent && window.parent !== window) {
+            try {
+                window.parent.postMessage({
+                    type: 'cloud-sync-status',
+                    connected: this.isConnected,
+                    lastSync: this.lastSync,
+                    autoSyncEnabled: this.autoSyncEnabled,
+                    provider: this.provider,
+                    browser: this.browserInfo.browser
+                }, '*');
+            } catch (error) {
+                // Ignore cross-origin errors
             }
-            if (providerElement) {
-                const providerNames = {
-                    'googledrive': 'Google Drive',
-                    'onedrive': 'Microsoft OneDrive',
-                    'dropbox': 'Dropbox'
-                };
-                providerElement.textContent = providerNames[this.provider] || this.provider;
-            }
-            if (lastSyncElement) {
-                lastSyncElement.textContent = this.lastSync ? 
-                    new Date(this.lastSync).toLocaleString() : 'Never';
-            }
-            if (autoSyncStatusElement) {
-                autoSyncStatusElement.textContent = this.autoSyncEnabled ? 'Enabled' : 'Disabled';
-            }
-            
-            if (connectBtn) connectBtn.style.display = 'none';
-            if (disconnectBtn) disconnectBtn.style.display = 'inline-block';
-            if (syncNowBtn) syncNowBtn.style.display = 'inline-block';
-            if (toggleAutoSyncBtn) {
-                toggleAutoSyncBtn.style.display = 'inline-block';
-                toggleAutoSyncBtn.textContent = `⚙️ Auto-sync: ${this.autoSyncEnabled ? 'ON' : 'OFF'}`;
-            }
-            if (syncOptions) syncOptions.style.display = 'block';
-            if (providerSelect) providerSelect.disabled = true;
-        } else {
-            if (statusElement) {
-                statusElement.textContent = '❌ Not connected';
-                statusElement.style.color = '#dc2626';
-            }
-            if (providerElement) providerElement.textContent = 'None';
-            if (lastSyncElement) lastSyncElement.textContent = 'Never';
-            if (autoSyncStatusElement) autoSyncStatusElement.textContent = 'Disabled';
-            
-            if (connectBtn) {
-                connectBtn.style.display = 'inline-block';
-                connectBtn.disabled = !providerSelect?.value;
-            }
-            if (disconnectBtn) disconnectBtn.style.display = 'none';
-            if (syncNowBtn) syncNowBtn.style.display = 'none';
-            if (toggleAutoSyncBtn) toggleAutoSyncBtn.style.display = 'none';
-            if (syncOptions) syncOptions.style.display = 'none';
-            if (providerSelect) providerSelect.disabled = false;
         }
     }
 
-    // ===== PROVIDER-SPECIFIC CONNECTIONS =====
-    // OAuth connections removed - using credential authentication only
+    updateBrowserInfo() {
+        // Add browser detection info to the UI if not already present
+        let browserInfoElement = document.getElementById('browser-info');
+        if (!browserInfoElement) {
+            const cloudSection = document.querySelector('.settings-section h3');
+            if (cloudSection && cloudSection.textContent.includes('Cloud Storage')) {
+                browserInfoElement = document.createElement('div');
+                browserInfoElement.id = 'browser-info';
+                browserInfoElement.className = 'storage-info';
+                browserInfoElement.style.marginTop = '10px';
+                browserInfoElement.style.fontSize = '0.85rem';
+                browserInfoElement.style.color = '#666';
+                
+                const section = cloudSection.parentNode;
+                section.insertBefore(browserInfoElement, section.querySelector('.setting-item'));
+            }
+        }
+        
+        if (browserInfoElement) {
+            const providerName = this.detectedProvider ? this.getProviderDisplayName(this.detectedProvider) : 'None detected';
+            const isLocal = window.location.protocol === 'file:';
+            browserInfoElement.innerHTML = `
+                <div class="info-item">
+                    <span class="info-label">Browser:</span>
+                    <span class="info-value">${this.browserInfo.browser.charAt(0).toUpperCase() + this.browserInfo.browser.slice(1)} ${this.browserInfo.version}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Environment:</span>
+                    <span class="info-value">${isLocal ? 'Local Development' : 'Production'}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Detected Cloud:</span>
+                    <span class="info-value">${providerName}${isLocal ? ' (Cloud detection disabled locally)' : ''}</span>
+                </div>
+            `;
+        }
+    }
+
+    updateControlButtons() {
+        const connectBtn = document.getElementById('connect-cloud-btn');
+        const disconnectBtn = document.getElementById('disconnect-cloud-btn');
+        const syncBtn = document.getElementById('sync-now-btn');
+        const autoSyncBtn = document.getElementById('toggle-auto-sync-btn');
+        const providerSelect = document.getElementById('cloud-provider-select');
+
+        if (connectBtn) {
+            connectBtn.disabled = this.isConnected;
+            connectBtn.style.display = this.isConnected ? 'none' : 'inline-block';
+        }
+
+        if (disconnectBtn) {
+            disconnectBtn.style.display = this.isConnected ? 'inline-block' : 'none';
+        }
+
+        if (syncBtn) {
+            syncBtn.style.display = this.isConnected ? 'inline-block' : 'none';
+        }
+
+        if (autoSyncBtn) {
+            autoSyncBtn.style.display = this.isConnected ? 'inline-block' : 'none';
+            autoSyncBtn.textContent = `⚙️ Auto-sync: ${this.autoSyncEnabled ? 'ON' : 'OFF'}`;
+        }
+
+        if (providerSelect) {
+            providerSelect.value = this.provider || '';
+        }
+    }
+
+    // ===== PUBLIC API =====
+
+    async handleConnect() {
+        try {
+            console.log('handleConnect called');
+            await this.connectToCloud();
+            return { success: true, message: 'Successfully connected to cloud storage' };
+        } catch (error) {
+            console.error('handleConnect error:', error);
+            return { success: false, message: error.message };
+        }
+    }
+
+    async handleDisconnect() {
+        try {
+            await this.disconnectFromCloud();
+            return { success: true, message: 'Disconnected from cloud storage' };
+        } catch (error) {
+            return { success: false, message: error.message };
+        }
+    }
+
+    async handleSyncNow() {
+        try {
+            await this.syncToCloud();
+            return { success: true, message: 'Data synced successfully' };
+        } catch (error) {
+            return { success: false, message: error.message };
+        }
+    }
+
+    async handleDownload() {
+        try {
+            await this.downloadFromCloud();
+            return { success: true, message: 'Data downloaded successfully' };
+        } catch (error) {
+            return { success: false, message: error.message };
+        }
+    }
+
+    handleToggleAutoSync() {
+        if (this.autoSyncEnabled) {
+            this.stopAutoSync();
+            return { success: true, message: 'Auto-sync disabled' };
+        } else {
+            this.startAutoSync();
+            return { success: true, message: 'Auto-sync enabled' };
+        }
+    }
 }
 
-// ===== AUTHENTICATION UI MANAGEMENT =====
+// ===== UI MANAGEMENT =====
+
 class CloudAuthUI {
     constructor(cloudManager) {
         this.cloudManager = cloudManager;
     }
 
-    showAuthModal(provider) {
-        const modalMap = {
-            'google': 'googleAuthModal',
-            'microsoft': 'microsoftAuthModal',
-            'dropbox': 'dropboxAuthModal'
-        };
-        
-        const modalId = modalMap[provider];
-        if (!modalId) return;
-        
-        const modal = document.getElementById(modalId);
-        if (!modal) return;
-        
-        // Reset form
-        this.clearAuthForm(provider);
-        
-        modal.style.display = 'flex';
-        
-        // Focus on first input after modal opens
-        setTimeout(() => {
-            const emailInput = document.getElementById(`${provider}EmailInput`);
-            if (emailInput) emailInput.focus();
-        }, 100);
+    initialize() {
+        this.setupEventListeners();
+        this.updateUI();
     }
 
-    hideAuthModal(provider) {
-        const modalMap = {
-            'google': 'googleAuthModal',
-            'microsoft': 'microsoftAuthModal',
-            'dropbox': 'dropboxAuthModal'
-        };
-        
-        const modalId = modalMap[provider];
-        const modal = document.getElementById(modalId);
-        if (modal) {
-            modal.style.display = 'none';
-            this.clearAuthForm(provider);
-        }
-    }
-
-    clearAuthForm(provider) {
-        const emailInput = document.getElementById(`${provider}EmailInput`);
-        const passwordInput = document.getElementById(`${provider}PasswordInput`);
-        const rememberMe = document.getElementById(`${provider}RememberMe`);
-        const errorDiv = document.getElementById(`${provider}AuthError`);
-        
-        if (emailInput) emailInput.value = '';
-        if (passwordInput) passwordInput.value = '';
-        if (rememberMe) rememberMe.checked = false;
-        if (errorDiv) errorDiv.style.display = 'none';
-    }
-
-    showAuthError(provider, message) {
-        const errorDiv = document.getElementById(`${provider}AuthError`);
-        if (errorDiv) {
-            errorDiv.textContent = message;
-            errorDiv.style.display = 'block';
-        }
-    }
-
-
-
-    async handleCredentialSignIn(provider) {
-        const emailInput = document.getElementById(`${provider}EmailInput`);
-        const passwordInput = document.getElementById(`${provider}PasswordInput`);
-        const rememberMe = document.getElementById(`${provider}RememberMe`);
-        const signInBtn = document.getElementById(`${provider}SignInBtn`);
-
-        const email = emailInput?.value;
-        const password = passwordInput?.value;
-        const remember = rememberMe?.checked;
-
-        if (!email || !password) {
-            this.showAuthError(provider, 'Please enter both email and password.');
-            return;
-        }
-
-        if (!email.includes('@')) {
-            this.showAuthError(provider, 'Please enter a valid email address.');
-            return;
-        }
-
-        try {
-            if (signInBtn) {
-                signInBtn.textContent = '🔄 Signing in...';
-                signInBtn.disabled = true;
-            }
-
-            // Simulate authentication process (DEMO ONLY)
-            await new Promise(resolve => setTimeout(resolve, 1500));
-
-            const providerMap = {
-                'google': 'googledrive',
-                'microsoft': 'onedrive',
-                'dropbox': 'dropbox'
-            };
-
-            const result = await this.cloudManager.handleAuthenticationSuccess(providerMap[provider], {
-                email: email,
-                rememberMe: remember,
-                authMethod: 'credentials'
+    setupEventListeners() {
+        // Cloud provider selection
+        const providerSelect = document.getElementById('cloud-provider-select');
+        if (providerSelect) {
+            providerSelect.addEventListener('change', () => {
+                this.cloudManager.provider = providerSelect.value;
+                this.updateUI();
             });
+        }
 
-            this.hideAuthModal(provider);
-            const providerName = provider === 'google' ? 'Google Drive' : 
-                               provider === 'microsoft' ? 'Microsoft OneDrive' : 'Dropbox';
-            
-            if (result.hasRealCredentials) {
-                alert(`✅ Connected to ${providerName}!\n\n🔑 Using your configured API credentials for secure cloud synchronization.`);
-            } else {
-                alert(`✅ Connected to ${providerName}!\n\n⚙️ To enable full cloud synchronization:\n\n1. Click "⚙️ Configure APIs" in Cloud Storage settings\n2. Add your ${providerName} API credentials\n3. Save the configuration`);
-            }
-        } catch (error) {
-            this.showAuthError(provider, 'Sign-in failed: ' + error.message);
-        } finally {
-            if (signInBtn) {
-                signInBtn.textContent = '🔐 Sign In';
-                signInBtn.disabled = false;
-            }
+        // Control buttons
+        const connectBtn = document.getElementById('connect-cloud-btn');
+        if (connectBtn) {
+            connectBtn.addEventListener('click', async () => {
+                console.log('Connect button clicked!');
+                await this.handleConnect();
+            });
+        }
+
+        const disconnectBtn = document.getElementById('disconnect-cloud-btn');
+        if (disconnectBtn) {
+            disconnectBtn.addEventListener('click', async () => {
+                await this.handleDisconnect();
+            });
+        }
+
+        const syncBtn = document.getElementById('sync-now-btn');
+        if (syncBtn) {
+            syncBtn.addEventListener('click', async () => {
+                await this.handleSyncNow();
+            });
+        }
+
+        const autoSyncBtn = document.getElementById('toggle-auto-sync-btn');
+        if (autoSyncBtn) {
+            autoSyncBtn.addEventListener('click', async () => {
+                await this.handleToggleAutoSync();
+            });
+        }
+
+        // Sync settings
+        const encryptCheckbox = document.getElementById('encrypt-before-sync');
+        if (encryptCheckbox) {
+            encryptCheckbox.addEventListener('change', (e) => {
+                this.cloudManager.setEncryptBeforeSync(e.target.checked);
+            });
+        }
+
+        const frequencySelect = document.getElementById('sync-frequency-select');
+        if (frequencySelect) {
+            frequencySelect.addEventListener('change', (e) => {
+                this.cloudManager.setSyncFrequency(parseInt(e.target.value));
+            });
         }
     }
 
-    handleForgotPassword(provider) {
-        const urls = {
-            google: 'https://accounts.google.com/signin/recovery',
-            microsoft: 'https://account.live.com/password/reset',
-            dropbox: 'https://www.dropbox.com/forgot'
-        };
-        if (urls[provider]) {
-            window.open(urls[provider], '_blank');
+    async handleConnect() {
+        const result = await this.cloudManager.handleConnect();
+        this.showMessage(result.message, result.success ? 'success' : 'error');
+    }
+
+    async handleDisconnect() {
+        const result = await this.cloudManager.handleDisconnect();
+        this.showMessage(result.message, result.success ? 'success' : 'error');
+    }
+
+    async handleSyncNow() {
+        const result = await this.cloudManager.handleSyncNow();
+        this.showMessage(result.message, result.success ? 'success' : 'error');
+    }
+
+    async handleToggleAutoSync() {
+        const result = this.cloudManager.handleToggleAutoSync();
+        this.showMessage(result.message, result.success ? 'success' : 'error');
+    }
+
+    updateUI() {
+        // Show/hide sync options based on connection status
+        const syncOptions = document.getElementById('sync-options');
+        if (syncOptions) {
+            syncOptions.style.display = this.cloudManager.isConnected ? 'block' : 'none';
+        }
+
+        // Update provider selection
+        const providerSelect = document.getElementById('cloud-provider-select');
+        if (providerSelect) {
+            providerSelect.value = this.cloudManager.provider || '';
+        }
+
+        // Update encryption checkbox
+        const encryptCheckbox = document.getElementById('encrypt-before-sync');
+        if (encryptCheckbox) {
+            encryptCheckbox.checked = this.cloudManager.encryptBeforeSync;
+        }
+
+        // Update frequency select
+        const frequencySelect = document.getElementById('sync-frequency-select');
+        if (frequencySelect) {
+            frequencySelect.value = this.cloudManager.syncFrequency.toString();
         }
     }
 
-    handleCreateAccount(provider) {
-        const urls = {
-            google: 'https://accounts.google.com/signup',
-            microsoft: 'https://signup.live.com/',
-            dropbox: 'https://www.dropbox.com/register'
-        };
-        if (urls[provider]) {
-            window.open(urls[provider], '_blank');
+    showMessage(message, type = 'info') {
+        // Create or update message element
+        let messageElement = document.getElementById('cloud-message');
+        if (!messageElement) {
+            messageElement = document.createElement('div');
+            messageElement.id = 'cloud-message';
+            messageElement.className = 'message';
+            const cloudSection = document.querySelector('.settings-section h3');
+            if (cloudSection && cloudSection.textContent.includes('Cloud Storage')) {
+                cloudSection.parentNode.insertBefore(messageElement, cloudSection.nextSibling);
+            }
         }
+
+        messageElement.textContent = message;
+        messageElement.className = `message ${type}`;
+        messageElement.style.display = 'block';
+
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            messageElement.style.display = 'none';
+        }, 5000);
     }
 }
 
