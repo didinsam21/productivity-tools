@@ -5,7 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>⚙️ Settings</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            padding-top: max(20px, env(safe-area-inset-top));
+            padding-bottom: max(20px, env(safe-area-inset-bottom));
+            padding-left: max(20px, env(safe-area-inset-left));
+            padding-right: max(20px, env(safe-area-inset-right));
+            background: #f5f5f5; 
+        }
         .container { max-width: 600px; margin: 0 auto; }
         .settings-section { 
             background: white; 
@@ -906,7 +915,14 @@
         function updatePWAStatus() {
             // Check if app is installed or running locally
             const isInstalled = window.matchMedia('(display-mode: standalone)').matches || 
-                               window.navigator.standalone === true;
+                               window.navigator.standalone === true ||
+                               document.referrer.includes('android-app://');
+            
+            // Check if running in iOS Safari
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+            const isIOSSafari = isIOS && isSafari;
+            
             const isLocalhost = window.location.hostname === 'localhost' || 
                                window.location.hostname === '127.0.0.1' || 
                                window.location.protocol === 'file:';
@@ -921,9 +937,16 @@
             } else if (isInstalled) {
                 installStatus.textContent = '✅ App is installed';
                 installBtn.style.display = 'none';
-            } else {
+            } else if (isIOSSafari) {
+                // Special handling for iOS Safari
+                installStatus.textContent = '📱 Tap the share button and select "Add to Home Screen"';
+                installBtn.style.display = 'none';
+            } else if (checkInstallPrompt()) {
                 installStatus.textContent = '📱 App can be installed';
                 installBtn.style.display = 'inline-block';
+            } else {
+                installStatus.textContent = '📱 Install not available in this browser';
+                installBtn.style.display = 'none';
             }
             
             // Check service worker
@@ -943,6 +966,18 @@
             } else {
                 document.getElementById('sw-status').textContent = '❌ Not supported';
                 document.getElementById('cache-status').textContent = '❌ Not available';
+            }
+            
+            // Additional iOS-specific checks
+            if (isIOSSafari) {
+                // Check if the app is already added to home screen
+                if (window.navigator.standalone === true) {
+                    installStatus.textContent = '✅ App is installed on home screen';
+                    installBtn.style.display = 'none';
+                } else {
+                    installStatus.textContent = '📱 Tap the share button and select "Add to Home Screen"';
+                    installBtn.style.display = 'none';
+                }
             }
         }
 
@@ -1083,6 +1118,24 @@
             }
         }
 
+        // Check if install prompt is available
+        function checkInstallPrompt() {
+            // Check for beforeinstallprompt event (Chrome/Edge)
+            if ('BeforeInstallPromptEvent' in window) {
+                return true;
+            }
+            
+            // Check for iOS Safari
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+            
+            if (isIOS && isSafari) {
+                return true; // iOS Safari supports manual installation
+            }
+            
+            return false;
+        }
+
         function installApp() {
             if (window.parent && window.parent !== window) {
                 // We're in an iframe, send message to parent
@@ -1090,6 +1143,23 @@
             } else {
                 alert('App installation is handled by the main application.');
             }
+        }
+
+        // Function to check if PWA is installed
+        function checkIfPWAInstalled() {
+            // Check for standalone mode (Android/Chrome)
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+            
+            // Check for iOS standalone mode
+            const isIOSStandalone = window.navigator.standalone === true;
+            
+            // Check for Android app mode
+            const isAndroidApp = document.referrer.includes('android-app://');
+            
+            // Check for TWA (Trusted Web Activity)
+            const isTWA = window.matchMedia('(display-mode: minimal-ui)').matches;
+            
+            return isStandalone || isIOSStandalone || isAndroidApp || isTWA;
         }
 
         async function previewData() {
@@ -1528,6 +1598,12 @@
              
              // Setup update check functionality
              setupUpdateCheck();
+             
+             // Set up periodic PWA status checks
+             setInterval(updatePWAStatus, 5000); // Check every 5 seconds
+             
+             // Also check when window gains focus (user returns to app)
+             window.addEventListener('focus', updatePWAStatus);
          });
 
          // Listen for cloud sync status updates
