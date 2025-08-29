@@ -90,6 +90,7 @@ productivity-tools/
 ├── cloud-auth.js           # Cloud storage sync manager
 ├── service-worker.js       # Offline caching and PWA features
 ├── manifest.json           # PWA configuration
+├── update-version.js       # Version update script for deployments
 ├── notes-list.html         # Notes management interface
 ├── note-editor.html        # Rich text note editor
 ├── pomodoro.html           # Pomodoro timer tool
@@ -104,6 +105,35 @@ productivity-tools/
 ├── LICENSE                 # The Unlicense
 └── README.md              # This documentation
 ```
+
+## 🔄 Update System
+
+The PWA includes an intelligent update system that ensures users always get the latest version:
+
+### Automatic Updates
+- **Version-based Caching**: Each deployment uses a unique cache name based on version
+- **Network-First Strategy**: Always tries to fetch fresh content from the server
+- **Update Detection**: Automatically detects when new versions are available
+- **Periodic Checks**: Checks for updates every hour in the background
+- **User Notifications**: Shows update notifications when new versions are ready
+
+### Manual Update Check
+- **Settings Page**: "Check for Updates" button in the settings
+- **Immediate Refresh**: Users can apply updates immediately
+- **Status Feedback**: Clear indication of update status and progress
+
+### Deployment Process
+1. **Update Version**: Run `node update-version.js v1.0.5` (replace with new version)
+2. **Test Locally**: Verify changes work as expected
+3. **Commit & Push**: Push to GitHub repository
+4. **Auto-Deploy**: GitHub Pages automatically deploys the update
+5. **User Updates**: Users see update notifications on next visit
+
+### Version Management
+- **Service Worker**: Cache version in `service-worker.js`
+- **Manifest**: App version in `manifest.json`
+- **Synchronized**: Both files updated together via script
+- **Semantic Versioning**: Follows vX.Y.Z format (e.g., v1.0.5)
 
 ## 🚀 Quick Start
 

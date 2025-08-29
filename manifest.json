@@ -1,6 +1,6 @@
 {
   "name": "Productivity Suite",
-  "version": "1.0.0",
+  "version": "1.0.4",
   "short_name": "Productivity Suite",
   "description": "A unified Progressive Web App combining note-taking and productivity tools with encrypted storage",
   "start_url": "./",
@@ -10,7 +10,11 @@
   "orientation": "any",
   "scope": "./",
   "lang": "en",
-  "categories": ["productivity", "utilities", "education"],
+  "categories": [
+    "productivity",
+    "utilities",
+    "education"
+  ],
   "icons": [
     {
       "src": "icons/icon-192x192.png",

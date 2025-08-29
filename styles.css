@@ -77,13 +77,13 @@ body {
 .app-nav {
     background: var(--surface-elevated);
     border-bottom: 1px solid var(--border-color);
-    padding: var(--spacing-sm) 0;
+    padding: var(--spacing-xs) 0;
     position: sticky;
     top: 0;
     z-index: 90;
     box-shadow: var(--shadow-sm);
-    height: 64px; /* Reduced height for more compact design */
-    min-height: 64px;
+    height: 60px; /* More compact design */
+    min-height: 60px;
 }
 
 .nav-container {
@@ -92,8 +92,8 @@ body {
     align-items: center;
     max-width: 1400px;
     margin: 0 auto;
-    padding: 0 var(--spacing-sm);
-    gap: var(--spacing-xs); /* Reduced gap for more compact layout */
+    padding: 0; /* Remove padding */
+    gap: 0; /* No gap between tools */
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
 }
@@ -110,11 +110,11 @@ body {
     padding: var(--spacing-xs) var(--spacing-sm);
     border: none;
     background: none;
-    border-radius: var(--radius-sm);
+    border-radius: 0; /* Remove border radius for flat design */
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease;
     color: var(--text-secondary);
-    min-width: 56px; /* Reduced from 80px for more compact design */
+    min-width: 50px; /* More compact design */
     white-space: nowrap;
     flex-shrink: 0; /* Prevent items from shrinking */
 }
@@ -125,16 +125,16 @@ body {
 }
 
 .nav-item.active {
-    background: var(--primary-color);
-    color: white;
+    background: #e0e0e0; /* Simple gray background */
+    color: var(--text-primary);
 }
 
 .nav-icon {
-    font-size: var(--font-size-base); /* Reduced from lg for compactness */
+    font-size: var(--font-size-sm); /* More compact icons */
 }
 
 .nav-text {
-    font-size: var(--font-size-xs); /* Reduced from sm for compactness */
+    font-size: var(--font-size-xs); /* Compact text */
     font-weight: 500;
     line-height: 1;
 }
@@ -1227,29 +1227,33 @@ body {
     .app-nav {
         position: static;
         padding: var(--spacing-xs) 0;
-        height: 56px; /* Even more compact on mobile */
-        min-height: 56px;
+        height: 52px; /* More compact on mobile */
+        min-height: 52px;
     }
     
     .nav-container {
-        justify-content: center;
-        padding: 0 var(--spacing-xs);
-        gap: 2px; /* Minimal gap on mobile */
+        justify-content: space-around; /* Distribute evenly */
+        padding: 0; /* Remove padding */
+        gap: 0; /* No gap between tools */
+        width: 100%;
     }
     
     .nav-item {
-        min-width: 48px; /* Very compact for mobile */
-        padding: var(--spacing-xs) 2px;
+        min-width: 42px; /* Very compact for mobile */
+        padding: 4px 2px;
         gap: 1px; /* Minimal gap between icon and text */
+        flex: 1; /* Allow items to grow equally */
+        max-width: 50px; /* Prevent items from getting too wide */
     }
     
     .nav-icon {
-        font-size: var(--font-size-sm); /* Slightly smaller icons on mobile */
+        font-size: 14px; /* Compact icons on mobile */
     }
     
     .nav-text {
-        font-size: 10px; /* Very small text for mobile compactness */
+        font-size: 9px; /* Very small text for mobile compactness */
         line-height: 1;
+        font-weight: 400;
     }
     
     .notebook-container {
@@ -1306,17 +1310,27 @@ body {
 
 @media (max-width: 480px) {
     .app-nav {
-        height: 52px; /* Ultra-compact on very small screens */
-        min-height: 52px;
+        height: 48px; /* Ultra-compact on very small screens */
+        min-height: 48px;
+    }
+    
+    .nav-container {
+        gap: 0; /* No gap on very small screens */
+        padding: 0; /* Remove padding */
     }
     
     .nav-item {
-        min-width: 44px; /* Ultra-compact for very small screens */
-        padding: 2px 1px; /* Minimal padding */
+        min-width: 38px; /* Ultra-compact for very small screens */
+        padding: 3px 1px; /* Minimal padding */
+        max-width: 45px; /* Prevent items from getting too wide */
     }
     
     .nav-icon {
-        font-size: 12px; /* Smaller icons on very small screens */
+        font-size: 13px; /* Compact icons on very small screens */
+    }
+    
+    .nav-text {
+        font-size: 8px; /* Ultra-small text for very small screens */
     }
     
     .nav-text {
@@ -1388,6 +1402,10 @@ select:focus,
 textarea:focus {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
+}
+
+.nav-item:focus {
+    outline: none;
 }
 
 /* Print Styles */

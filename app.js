@@ -255,17 +255,28 @@ class ProductivitySuite {
         });
     }
 
-    updateStatus(message, type = 'info') {
+    updateStatus(message, type = 'info', clickable = false) {
         const statusElement = document.getElementById('status');
         if (statusElement) {
-            statusElement.textContent = message;
+            if (clickable) {
+                statusElement.innerHTML = `<span style="cursor: pointer; text-decoration: underline;">${message}</span>`;
+                statusElement.onclick = () => {
+                    window.location.reload();
+                };
+            } else {
+                statusElement.textContent = message;
+                statusElement.onclick = null;
+            }
             statusElement.className = `status ${type}`;
             
-            // Auto-hide after 3 seconds
-            setTimeout(() => {
-                statusElement.textContent = '';
-                statusElement.className = 'status';
-            }, 3000);
+            // Auto-hide after 3 seconds (unless clickable)
+            if (!clickable) {
+                setTimeout(() => {
+                    statusElement.textContent = '';
+                    statusElement.className = 'status';
+                    statusElement.onclick = null;
+                }, 3000);
+            }
         }
     }
 
@@ -276,11 +287,132 @@ class ProductivitySuite {
                 const registration = await navigator.serviceWorker.register('./service-worker.js');
                 console.log('Service Worker registered:', registration);
                 this.updateStatus('App ready for offline use', 'success');
+                
+                // Handle service worker updates
+                this.handleServiceWorkerUpdates(registration);
+                
             } catch (error) {
                 console.error('Service Worker registration failed:', error);
                 this.updateStatus('Offline features unavailable', 'warning');
             }
         }
+    }
+
+    handleServiceWorkerUpdates(registration) {
+        // Check for updates on page load
+        registration.addEventListener('updatefound', () => {
+            console.log('Service Worker update found');
+            const newWorker = registration.installing;
+            
+            newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    // New service worker is installed and ready
+                    this.showUpdateNotification();
+                }
+            });
+        });
+
+        // Listen for messages from service worker
+        navigator.serviceWorker.addEventListener('message', (event) => {
+            if (event.data && event.data.type === 'SW_UPDATED') {
+                console.log('Service Worker updated to version:', event.data.version);
+                this.updateStatus(`App updated to version ${event.data.version}`, 'success');
+            }
+        });
+
+        // Handle controller change (when new service worker takes over)
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            console.log('Service Worker controller changed');
+            this.updateStatus('App updated successfully!', 'success');
+        });
+
+        // Check for updates periodically (every hour)
+        setInterval(() => {
+            registration.update().catch(console.error);
+        }, 60 * 60 * 1000);
+
+        // Store registration for manual update checks
+        this.serviceWorkerRegistration = registration;
+    }
+
+    // Manual update check function
+    async checkForUpdates() {
+        if (this.serviceWorkerRegistration) {
+            try {
+                await this.serviceWorkerRegistration.update();
+                this.updateStatus('Checking for updates...', 'info');
+            } catch (error) {
+                console.error('Update check failed:', error);
+                this.updateStatus('Update check failed', 'error');
+            }
+        }
+    }
+
+    showUpdateNotification() {
+        // Show update notification in the main status area
+        this.updateStatus('🔄 New version available! Click to update.', 'info', true);
+        
+        // Also show a more prominent notification
+        const updateDiv = document.createElement('div');
+        updateDiv.id = 'update-notification';
+        updateDiv.innerHTML = `
+            <div style="
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #4CAF50;
+                color: white;
+                padding: 15px 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 10000;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                max-width: 300px;
+                animation: slideIn 0.3s ease-out;
+            ">
+                <span>🔄 New version available!</span>
+                <button onclick="this.parentElement.remove(); window.location.reload();" 
+                        style="
+                            background: white;
+                            color: #4CAF50;
+                            border: none;
+                            padding: 5px 10px;
+                            border-radius: 4px;
+                            cursor: pointer;
+                            font-weight: bold;
+                        ">
+                    Update
+                </button>
+                <button onclick="this.parentElement.remove()" 
+                        style="
+                            background: transparent;
+                            color: white;
+                            border: 1px solid white;
+                            padding: 5px 10px;
+                            border-radius: 4px;
+                            cursor: pointer;
+                        ">
+                    Later
+                </button>
+            </div>
+            <style>
+                @keyframes slideIn {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+            </style>
+        `;
+        document.body.appendChild(updateDiv);
+        
+        // Auto-remove after 30 seconds if user doesn't interact
+        setTimeout(() => {
+            const notification = document.getElementById('update-notification');
+            if (notification) {
+                notification.remove();
+            }
+        }, 30000);
     }
 
     setupPWAInstallPrompt() {

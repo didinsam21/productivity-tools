@@ -240,11 +240,11 @@
             </div>
             <div class="setting-item">
                 <label>Sync Settings</label>
-                <p class="setting-description">Configure sync behavior and security</p>
+                <p class="setting-description">Connect to cloud storage to configure sync behavior and security</p>
                 <div class="sync-options" id="sync-options" style="display: none;">
                     <div class="sync-option">
                         <input type="checkbox" id="sync-all-data" checked disabled>
-                        <label for="sync-all-data">📦 Sync complete data export (all productivity tools)</label>
+                        <label for="sync-all-data">📦 Sync complete data export</label>
                     </div>
                     <div class="sync-option">
                         <input type="checkbox" id="encrypt-before-sync" checked>
@@ -277,6 +277,12 @@
             <h4>📝 Productivity Suite</h4>
             <p>&copy; 2025 Tolin Simpson</p>
             <p class="version-info" id="version-info">Version loading...</p>
+            <div class="app-update-section">
+                <button id="check-update-btn" class="btn btn-secondary" style="margin-top: 10px;">
+                    🔄 Check for Updates
+                </button>
+                <p class="update-status" id="update-status" style="font-size: 0.9em; margin-top: 5px; color: #666;"></p>
+            </div>
             <script>
                 // Try to fetch version from manifest.json, with CORS-safe fallback
                 async function loadVersion() {
@@ -1519,6 +1525,9 @@
          window.addEventListener('load', async () => {
              await initStorage();
              await initCloudStorage();
+             
+             // Setup update check functionality
+             setupUpdateCheck();
          });
 
          // Listen for cloud sync status updates
@@ -1528,6 +1537,46 @@
                  updateSyncStatus();
              }
          });
+
+         // Update check functionality
+         function setupUpdateCheck() {
+             const checkUpdateBtn = document.getElementById('check-update-btn');
+             const updateStatus = document.getElementById('update-status');
+             
+             if (checkUpdateBtn) {
+                 checkUpdateBtn.addEventListener('click', async () => {
+                     try {
+                         checkUpdateBtn.disabled = true;
+                         checkUpdateBtn.textContent = '🔄 Checking...';
+                         updateStatus.textContent = 'Checking for updates...';
+                         
+                         // Call the main app's update check function
+                         if (window.app && window.app.checkForUpdates) {
+                             await window.app.checkForUpdates();
+                         } else {
+                             // Fallback: manually trigger service worker update
+                             if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                                 await navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+                                 updateStatus.textContent = 'Update check completed. Refresh the page to apply updates.';
+                             } else {
+                                 updateStatus.textContent = 'No service worker found.';
+                             }
+                         }
+                         
+                         setTimeout(() => {
+                             checkUpdateBtn.disabled = false;
+                             checkUpdateBtn.textContent = '🔄 Check for Updates';
+                         }, 2000);
+                         
+                     } catch (error) {
+                         console.error('Update check failed:', error);
+                         updateStatus.textContent = 'Update check failed: ' + error.message;
+                         checkUpdateBtn.disabled = false;
+                         checkUpdateBtn.textContent = '🔄 Check for Updates';
+                     }
+                 });
+             }
+         }
     </script>
 </body>
 </html>
