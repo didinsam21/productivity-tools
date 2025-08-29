@@ -1531,19 +1531,21 @@
                 
                 const fileName = `productivity-suite-backup-${new Date().toISOString().split('T')[0]}.json`;
                 
+                // Create the File object for sharing
+                const file = new File([blob], fileName, { type: 'application/json' });
+                
                 // Check if we can share files
-                if (navigator.canShare && navigator.canShare({ files: [blob] })) {
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
                     // Share the file
                     await navigator.share({
                         title: 'Productivity Suite Data Export',
                         text: 'My productivity data backup from Productivity Suite',
-                        files: [new File([blob], fileName, { type: 'application/json' })]
+                        files: [file]
                     });
                     
                     alert('✅ Data shared successfully!');
                 } else {
                     // Fallback: share text content
-                    const dataText = JSON.stringify(allData, null, 2);
                     await navigator.share({
                         title: 'Productivity Suite Data Export',
                         text: 'My productivity data backup from Productivity Suite',
