@@ -19,6 +19,7 @@ class CloudStorageManager {
         this.fileHandle = null;
         this.detectedProvider = null;
         this.browserInfo = this.detectBrowser();
+        this.offlineSyncEnabled = true; // New property for offline sync
     }
 
     // ===== BROWSER DETECTION =====
@@ -262,6 +263,7 @@ class CloudStorageManager {
                 this.userEmail = settings.userEmail;
                 this.encryptBeforeSync = settings.encryptBeforeSync !== undefined ? settings.encryptBeforeSync : true;
                 this.syncFileName = settings.syncFileName || 'productivity-suite-backup.json';
+                this.offlineSyncEnabled = settings.offlineSyncEnabled !== undefined ? settings.offlineSyncEnabled : true;
                 
                 // Restore file handle if available
                 if (settings.fileHandle && 'showOpenFilePicker' in window) {
@@ -292,7 +294,8 @@ class CloudStorageManager {
                 lastSync: this.lastSync,
                 userEmail: this.userEmail,
                 encryptBeforeSync: this.encryptBeforeSync,
-                syncFileName: this.syncFileName
+                syncFileName: this.syncFileName,
+                offlineSyncEnabled: this.offlineSyncEnabled
             };
             await this.storage.saveEncrypted('cloud-settings', settings);
         } catch (error) {
@@ -722,6 +725,22 @@ class CloudStorageManager {
     setEncryptBeforeSync(encrypt) {
         this.encryptBeforeSync = encrypt;
         this.saveCloudSettings();
+    }
+
+    setOfflineSyncEnabled(enabled) {
+        this.offlineSyncEnabled = enabled;
+        this.saveCloudSettings();
+    }
+
+    setSyncFrequency(minutes) {
+        this.syncFrequency = minutes;
+        this.saveCloudSettings();
+        
+        // If auto-sync is enabled, restart it with new frequency
+        if (this.autoSyncEnabled && minutes > 0) {
+            this.stopAutoSync();
+            this.startAutoSync();
+        }
     }
 
     // ===== ENHANCED UI UPDATES =====

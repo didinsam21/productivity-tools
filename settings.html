@@ -212,7 +212,7 @@
             <h3>☁️ Cloud Storage & Sync</h3>
             <div class="setting-item">
                 <label>Browser-Native Cloud Sync</label>
-                <p class="setting-description">Save your data directly to cloud storage using your browser's built-in file system access. Works with Google Drive, OneDrive, Dropbox, and any cloud storage when you're logged in.</p>
+                <p class="setting-description">Save your data directly to cloud storage if signed into a provider such as Google Drive, OneDrive, or Dropbox.</p>
                 <div class="storage-info" id="cloud-storage-status">
                     <div class="info-item">
                         <span class="info-label">Status:</span>
@@ -250,6 +250,10 @@
                         <input type="checkbox" id="encrypt-before-sync" checked>
                         <label for="encrypt-before-sync">🔒 Always encrypt data before syncing to cloud</label>
                     </div>
+                    <div class="sync-option">
+                        <input type="checkbox" id="sync-when-offline" checked>
+                        <label for="sync-when-offline">🔄 Sync when offline/local (queue for next connection)</label>
+                    </div>
                     <div class="sync-frequency">
                         <label for="sync-frequency-select">Sync frequency:</label>
                         <select id="sync-frequency-select">
@@ -257,7 +261,11 @@
                             <option value="15" selected>Every 15 minutes</option>
                             <option value="30">Every 30 minutes</option>
                             <option value="60">Every hour</option>
+                            <option value="0">Manual only (no auto-sync)</option>
                         </select>
+                    </div>
+                    <div class="sync-status-info">
+                        <small>💡 <strong>Current Status:</strong> <span id="current-sync-status">Checking...</span></small>
                     </div>
                 </div>
             </div>
@@ -549,12 +557,23 @@
             margin-right: 8px;
             font-weight: bold;
         }
-        .sync-frequency select {
-            padding: 4px 8px;
-            border: 1px solid #ccc;
-            border-radius: 3px;
-            background: #fff;
-        }
+                 .sync-frequency select {
+             padding: 4px 8px;
+             border: 1px solid #ccc;
+             border-radius: 3px;
+             background: #fff;
+         }
+         .sync-status-info {
+             margin-top: 12px;
+             padding: 8px;
+             background: #f8f9fa;
+             border-radius: 4px;
+             border: 1px solid #e9ecef;
+         }
+         .sync-status-info small {
+             color: #6c757d;
+             font-size: 0.85rem;
+         }
         /* Authentication Modal Styles */
         .auth-modal .modal-content {
             max-width: 450px;
@@ -1396,30 +1415,119 @@
         let cloudStorageManager = null;
         let cloudAuthUI = null;
 
-        // Initialize cloud storage manager
-        async function initCloudStorage() {
-            cloudStorageManager = new CloudStorageManager();
-            cloudAuthUI = new CloudAuthUI(cloudStorageManager);
-            await cloudStorageManager.initialize(storage);
-            cloudAuthUI.initialize();
-        }
+                 // Initialize cloud storage manager
+         async function initCloudStorage() {
+             cloudStorageManager = new CloudStorageManager();
+             cloudAuthUI = new CloudAuthUI(cloudStorageManager);
+             await cloudStorageManager.initialize(storage);
+             cloudAuthUI.initialize();
+             
+             // Show sync options if connected
+             updateSyncOptionsVisibility();
+             updateSyncStatus();
+             
+             // Set up periodic status updates
+             setInterval(updateSyncStatus, 30000); // Update every 30 seconds
+         }
 
-        // Encryption settings handler
-        function handleEncryptionToggle() {
-            const encryptCheckbox = document.getElementById('encrypt-before-sync');
-            if (cloudStorageManager) {
-                cloudStorageManager.setEncryptBeforeSync(encryptCheckbox.checked);
-            }
-        }
-            // Sync settings event listeners
-            document.getElementById('encrypt-before-sync').addEventListener('change', handleEncryptionToggle);
+         function updateSyncOptionsVisibility() {
+             const syncOptions = document.getElementById('sync-options');
+             if (cloudStorageManager && cloudStorageManager.isConnected) {
+                 syncOptions.style.display = 'block';
+                 
+                 // Update checkbox states
+                 const encryptCheckbox = document.getElementById('encrypt-before-sync');
+                 const offlineCheckbox = document.getElementById('sync-when-offline');
+                 const frequencySelect = document.getElementById('sync-frequency-select');
+                 
+                 if (encryptCheckbox) {
+                     encryptCheckbox.checked = cloudStorageManager.encryptBeforeSync;
+                 }
+                 if (offlineCheckbox) {
+                     offlineCheckbox.checked = cloudStorageManager.offlineSyncEnabled || true;
+                 }
+                 if (frequencySelect) {
+                     frequencySelect.value = cloudStorageManager.syncFrequency || 15;
+                 }
+             } else {
+                 syncOptions.style.display = 'none';
+             }
+         }
+
+                 // Sync settings handlers
+         function handleEncryptionToggle() {
+             const encryptCheckbox = document.getElementById('encrypt-before-sync');
+             if (cloudStorageManager) {
+                 cloudStorageManager.setEncryptBeforeSync(encryptCheckbox.checked);
+             }
+         }
+
+         function handleOfflineSyncToggle() {
+             const offlineCheckbox = document.getElementById('sync-when-offline');
+             if (cloudStorageManager) {
+                 cloudStorageManager.setOfflineSyncEnabled(offlineCheckbox.checked);
+             }
+         }
+
+         function handleSyncFrequencyChange() {
+             const frequencySelect = document.getElementById('sync-frequency-select');
+             const frequency = parseInt(frequencySelect.value);
+             if (cloudStorageManager) {
+                 cloudStorageManager.setSyncFrequency(frequency);
+                 if (frequency === 0) {
+                     // Manual only - stop auto sync
+                     cloudStorageManager.stopAutoSync();
+                 } else if (cloudStorageManager.autoSyncEnabled) {
+                     // Restart auto sync with new frequency
+                     cloudStorageManager.startAutoSync();
+                 }
+             }
+         }
+
+         function updateSyncStatus() {
+             const statusElement = document.getElementById('current-sync-status');
+             if (!cloudStorageManager) {
+                 statusElement.textContent = 'Cloud manager not initialized';
+                 return;
+             }
+
+             const isConnected = cloudStorageManager.isConnected;
+             const autoSyncEnabled = cloudStorageManager.autoSyncEnabled;
+             const frequency = cloudStorageManager.syncFrequency;
+             const isLocal = window.location.protocol === 'file:';
+
+             if (!isConnected) {
+                 statusElement.textContent = 'Not connected to cloud storage';
+             } else if (isLocal) {
+                 statusElement.textContent = 'Local development mode - cloud detection disabled';
+             } else if (autoSyncEnabled && frequency > 0) {
+                 statusElement.textContent = `Auto-sync enabled (every ${frequency} minutes)`;
+             } else if (autoSyncEnabled && frequency === 0) {
+                 statusElement.textContent = 'Manual sync only';
+             } else {
+                 statusElement.textContent = 'Auto-sync disabled';
+             }
+         }
+
+         // Sync settings event listeners
+         document.getElementById('encrypt-before-sync').addEventListener('change', handleEncryptionToggle);
+         document.getElementById('sync-when-offline').addEventListener('change', handleOfflineSyncToggle);
+         document.getElementById('sync-frequency-select').addEventListener('change', handleSyncFrequencyChange);
 
 
-        // Initialize when page loads
-        window.addEventListener('load', async () => {
-            await initStorage();
-            await initCloudStorage();
-        });
+                 // Initialize when page loads
+         window.addEventListener('load', async () => {
+             await initStorage();
+             await initCloudStorage();
+         });
+
+         // Listen for cloud sync status updates
+         window.addEventListener('message', (event) => {
+             if (event.data && event.data.type === 'cloud-sync-status') {
+                 updateSyncOptionsVisibility();
+                 updateSyncStatus();
+             }
+         });
     </script>
 </body>
 </html>
